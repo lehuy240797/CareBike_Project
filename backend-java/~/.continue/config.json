@@ -1,0 +1,58 @@
+{
+  "models": [
+    {
+      "title": "Gemini 2.0 Flash Thinking",
+      "provider": "gemini",
+      "model": "gemini-2.0-flash-thinking-exp",
+      "apiKey": "AIzaSyCfwjrVQKQEbgGvtuOMSeo0m33C1ryhr-Q"
+    },
+    {
+      "title": "Gemini 1.5 Flash",
+      "provider": "gemini",
+      "model": "gemini-1.5-flash",
+      "apiKey": "AIzaSyCfwjrVQKQEbgGvtuOMSeo0m33C1ryhr-Q"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Gemini 1.5 Flash",
+    "provider": "gemini",
+    "model": "gemini-1.5-flash",
+    "apiKey": "AIzaSyCfwjrVQKQEbgGvtuOMSeo0m33C1ryhr-Q"
+  },
+  "customCommands": [
+    {
+      "name": "test",
+      "description": "Viết unit test cho đoạn code này",
+      "prompt": "Hãy viết một bộ unit test đầy đủ và chi tiết cho đoạn code được chọn này. Hãy kiểm tra các trường hợp biên và xử lý lỗi nếu có."
+    },
+    {
+      "name": "explain",
+      "description": "Giải thích đoạn code này hoạt động thế nào",
+      "prompt": "Hãy giải thích chi tiết cách đoạn code này hoạt động từng bước một bằng tiếng Việt dễ hiểu."
+    }
+  ],
+  "contextProviders": [
+    {
+      "name": "code",
+      "params": {}
+    },
+    {
+      "name": "docs",
+      "params": {}
+    },
+    {
+      "name": "terminal",
+      "params": {}
+    }
+  ],
+  "slashCommands": [
+    {
+      "name": "edit",
+      "description": "Sửa code theo yêu cầu"
+    },
+    {
+      "name": "comment",
+      "description": "Thêm comment giải thích vào code"
+    }
+  ]
+}
