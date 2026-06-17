@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "users")
@@ -13,11 +14,8 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false, unique = true)
-    private String username;
-
-    @Column(nullable = false)
-    private String password;
+    @Column(name = "firebase_uid", unique = true)
+    private String firebaseUid;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -27,9 +25,18 @@ public class User {
 
     private String phone;
 
+    @Column(name = "dob")
+    private LocalDate dob;
+
+    @Column(name = "gender", length = 20)
+    private String gender;
+    
     @ManyToOne
     @JoinColumn(name = "role_id", referencedColumnName = "id")
     private Role role;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();

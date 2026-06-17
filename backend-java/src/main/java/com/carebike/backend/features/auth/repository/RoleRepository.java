@@ -5,6 +5,9 @@ import org.springframework.stereotype.Repository;
 
 import com.carebike.backend.features.auth.entity.Role;
 
+import java.util.Optional;
+
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Integer> {
-}
+    Optional<Role> findByRoleName(String roleName);
+}

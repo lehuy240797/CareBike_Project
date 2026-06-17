@@ -1,0 +1,65 @@
+package com.carebike.backend.features.vehicle.controller;
+
+import com.carebike.backend.features.vehicle.dto.VehicleRequest;
+import com.carebike.backend.features.vehicle.entity.Vehicle;
+import com.carebike.backend.features.vehicle.service.VehicleService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List; // Phải import List
+
+@RestController
+@RequestMapping("/api/vehicles")
+public class VehicleController {
+
+    private final VehicleService vehicleService;
+
+    public VehicleController(VehicleService vehicleService) {
+        this.vehicleService = vehicleService;
+    }
+
+    /**
+     * GET /api/vehicles/owner/{userId}
+     * Fetch all vehicle profiles for a specific customer.
+     * Trả về List (Danh sách), nếu khách chưa có xe thì trả về mảng rỗng []
+     */
+    @GetMapping("/owner/{userId}")
+    public ResponseEntity<List<Vehicle>> getVehicleByOwner(@PathVariable Integer userId) {
+        // Hứng danh sách xe và trả về thẳng OK
+        List<Vehicle> vehicles = vehicleService.getByOwnerId(userId);
+        return ResponseEntity.ok(vehicles);
+    }
+
+    /**
+     * PUT /api/vehicles/owner/{userId}
+     * Create or update the vehicle profile for a specific customer.
+     */
+   @PutMapping("/owner/{userId}")
+    public ResponseEntity<?> saveVehicle(
+            @PathVariable Integer userId,
+            @RequestBody VehicleRequest request) {
+        try {
+            Vehicle saved = vehicleService.saveVehicle(userId, request);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            // Ép hệ thống phải in lỗi ra màn hình Console của Spring Boot
+            System.err.println("==== LỖI KHI LƯU XE THỨ 2 ====");
+            e.printStackTrace(); 
+            
+            // Trả mã lỗi 400 về cho điện thoại
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", "Lỗi DB: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/vehicles/lookup?licensePlate=...
+     * Tìm xe theo Biển số (Dành cho chức năng quét mã của Chi nhánh)
+     */
+    @GetMapping("/lookup")
+    public ResponseEntity<Vehicle> lookupVehicle(@RequestParam String licensePlate) {
+        // Tìm bằng biển số thì trả về 1 chiếc (Optional), nên dùng .map().orElse() là chuẩn xác!
+        return vehicleService.getByLicensePlate(licensePlate)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+}
