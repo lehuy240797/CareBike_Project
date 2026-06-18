@@ -73,10 +73,6 @@ public class AppointmentService {
         
         apt.setStatus("CANCELLED");
         Appointment cancelledAppointment = appointmentRepository.save(apt);
-
-        // ====================================================================
-        // THÊM VÀO ĐÂY: Báo cho Chi nhánh biết Khách hàng đã tự hủy lịch
-        // ====================================================================
         String branchDestination = "/topic/branches/" + cancelledAppointment.getBranch().getId() + "/appointments";
         messagingTemplate.convertAndSend(branchDestination, cancelledAppointment);
 
@@ -96,7 +92,7 @@ public class AppointmentService {
         apt.setStatus(newStatus);
         Appointment updatedAppointment = appointmentRepository.save(apt);
 
-        // 2. Bắn tín hiệu real-time báo cho khách hàng biết (Đã nhận xe / Đã từ chối)
+        // Bắn thông báo Real-time lại cho khách hàng trên Mobile App biết trạng thái đã thay đổi
         Integer customerId = updatedAppointment.getCustomer().getId();
         String customerDestination = "/topic/customers/" + customerId + "/appointments";
         messagingTemplate.convertAndSend(customerDestination, updatedAppointment);

@@ -42,9 +42,6 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // ====================================================================
-    // THÊM MỚI: API Cập nhật thông tin cá nhân (Tên, Số điện thoại, Ngày sinh)
-    // ====================================================================
     /** PUT /api/users/{id} */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateUserProfile(@PathVariable Integer id, @RequestBody Map<String, String> request) {

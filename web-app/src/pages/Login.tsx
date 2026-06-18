@@ -43,7 +43,7 @@ const Login: React.FC = () => {
       navigate('/', { replace: true });
     } catch (err: any) {
       // =========================================================================
-      // HỨNG THÔNG BÁO LỖI TIẾNG VIỆT TỪ AUTH_CONTEXT VÀ ĐẨY LÊN GIAO DIỆN
+      // XỬ LÝ LỖI: Tiếp nhận lỗi từ AuthContext và phản hồi lên giao diện
       // =========================================================================
       if (err instanceof Error) {
         setError(err.message);
@@ -65,7 +65,7 @@ const Login: React.FC = () => {
           Chào mừng trở lại — dành cho Quản trị viên &amp; Chi nhánh
         </p>
 
-        {/* Hiển thị lỗi UI/UX chuyên nghiệp */}
+        {/* Khu vực hiển thị thông báo lỗi */}
         {error && (
           <div className="auth-alert auth-alert--error" role="alert">
             <AlertCircle size={16} aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }} />

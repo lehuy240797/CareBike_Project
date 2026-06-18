@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, MapPin, Phone, CheckCircle, Clock } from 'lucide-react';
-import { Client } from '@stomp/stompjs'; // Thêm thư viện STOMP
+import { Client } from '@stomp/stompjs'; 
+import toast from 'react-hot-toast'; 
+
+
 
 // Các interface giữ nguyên
 interface Vehicle { brand: string; model: string; licensePlate: string; }
@@ -55,8 +58,8 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
                     // Đẩy ca cứu hộ mới lên đầu danh sách màn hình
                     setRescues(prev => [newRescue, ...prev]);
 
-                    // Hiển thị thông báo KHẨN CẤP
-                    alert(`🚨 BÁO ĐỘNG: Có khách hàng vừa yêu cầu cứu hộ khẩn cấp!`);
+                    // Cảnh báo khẩn cấp thông qua hệ thống thông báo Toast
+                    toast.error(`🚨 BÁO ĐỘNG: Có khách hàng vừa yêu cầu cứu hộ khẩn cấp!`, { duration: 5000 });
                 }
             });
         };
@@ -68,9 +71,11 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
         };
     }, [branchId]); // Chạy lại khi branchId thay đổi
 
-    // Hàm xử lý nhận ca (Tạm thời ẩn đi cho đến khi bạn viết API)
+    /**
+     * Xử lý xác nhận tiếp nhận ca cứu hộ từ hệ thống.
+     */
     const handleAcceptRescue = async (rescueId: number) => {
-        alert(`Bạn đã tiếp nhận ca cứu hộ #${rescueId}`);
+        toast.success(`Bạn đã tiếp nhận ca cứu hộ #${rescueId}`);
         setRescues(prev => prev.filter(r => r.id !== rescueId));
     };
 

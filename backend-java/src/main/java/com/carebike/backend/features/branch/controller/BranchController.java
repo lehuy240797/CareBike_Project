@@ -27,45 +27,35 @@ public class BranchController {
     }
 
     /**
-     * POST /api/branches — create a branch + provision manager account in one transaction.
-     * Returns 400 with a Vietnamese error message on validation/uniqueness failures.
+     * POST /api/branches
+     * Xử lý tạo mới chi nhánh và cấp phát tài khoản quản lý (Manager) trong cùng một Transaction.
      */
     @PostMapping
     public ResponseEntity<?> createBranch(@RequestBody BranchRequest request) {
-        try {
-            Branch created = branchService.create(request);
-            return ResponseEntity.ok(created);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
+        Branch created = branchService.create(request);
+        return ResponseEntity.ok(created);
     }
 
     /**
-     * PUT /api/branches/{id} — update branch info + reassign manager.
-     * Returns 400 with error message on failure.
+     * PUT /api/branches/{id}
+     * Cập nhật thông tin chi nhánh và điều chuyển người quản lý.
+     * Đảm bảo tính nhất quán dữ liệu thông qua Transaction tại tầng Service.
      */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBranch(
             @PathVariable Integer id,
             @RequestBody BranchRequest request) {
-        try {
-            Branch updated = branchService.update(id, request);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
+        Branch updated = branchService.update(id, request);
+        return ResponseEntity.ok(updated);
     }
 
-    /** DELETE /api/branches/{id} — delete a branch */
+    /** 
+     * DELETE /api/branches/{id}
+     * Xóa chi nhánh và vô hiệu hóa/xóa các tài khoản quản lý liên quan.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBranch(@PathVariable Integer id) {
-        try {
-            branchService.delete(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        branchService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

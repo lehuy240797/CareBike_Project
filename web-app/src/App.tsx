@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'; // Bổ sung useA
 import ProtectedRoute from './routes/ProtectedRoute';
 import RoleRoute from './routes/RoleRoute';
 import Layout from './components/Layout';
+import { Toaster } from 'react-hot-toast'; // Import thư viện Toast báo lỗi xịn xò
+
 
 // Pages
 import Login from './pages/Login';
@@ -32,6 +34,8 @@ const App = () => {
   return (
     // BrowserRouter phải bọc AuthProvider để AuthProvider có thể gọi useNavigate
     <BrowserRouter>
+      {/* Gắn cái Toaster ở root để chỗ nào cũng gọi báo lỗi hiển thị đẹp được */}
+      <Toaster position="top-right" reverseOrder={false} />
       <AuthProvider>
         <Routes>
           {/* ── Public routes ─────────────────────────────────────────────── */}

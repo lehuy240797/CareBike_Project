@@ -21,17 +21,14 @@ public class AppointmentController {
     }
 
     /**
-     * POST /api/appointments — book a new appointment (mobile customers)
+     * POST /api/appointments
+     * Khởi tạo yêu cầu đặt lịch hẹn bảo dưỡng mới từ phía khách hàng.
      */
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<?> createAppointment(@RequestBody AppointmentRequest request) {
-        try {
-            Appointment created = appointmentService.create(request);
-            return ResponseEntity.ok(created);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
+        Appointment created = appointmentService.create(request);
+        return ResponseEntity.ok(created);
     }
 
     /**
@@ -44,16 +41,13 @@ public class AppointmentController {
     }
 
     /**
-     * PUT /api/appointments/{id}/cancel — customer cancels their appointment
+     * PUT /api/appointments/{id}/cancel
+     * Hủy lịch hẹn bảo dưỡng. Thao tác này được thực hiện bởi người dùng (Customer).
      */
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelAppointment(@PathVariable Integer id) {
-        try {
-            Appointment cancelled = appointmentService.cancel(id);
-            return ResponseEntity.ok(cancelled);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
+        Appointment cancelled = appointmentService.cancel(id);
+        return ResponseEntity.ok(cancelled);
     }
 
     /**
@@ -68,20 +62,18 @@ public class AppointmentController {
     }
 
     /**
-     * PUT /api/appointments/{id}/status — branch updates status (CONFIRMED, CANCELLED)
+     * PUT /api/appointments/{id}/status
+     * Chi nhánh cập nhật trạng thái xử lý lịch hẹn (ví dụ: CONFIRMED, CANCELLED).
+     * Yêu cầu kiểm tra tính hợp lệ của tham số trạng thái trước khi thực thi.
      */
     @PutMapping("/{id}/status")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('BRANCH', 'ADMIN')")
     public ResponseEntity<?> updateStatus(@PathVariable Integer id, @RequestBody Map<String, String> request) {
-        try {
-            String status = request.get("status");
-            if (status == null || status.isEmpty()) {
-                throw new RuntimeException("Trạng thái không được để trống.");
-            }
-            Appointment updated = appointmentService.updateStatus(id, status);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        String status = request.get("status");
+        if (status == null || status.isEmpty()) {
+            throw new RuntimeException("Trạng thái không được để trống.");
         }
+        Appointment updated = appointmentService.updateStatus(id, status);
+        return ResponseEntity.ok(updated);
     }
 }

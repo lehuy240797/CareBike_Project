@@ -10,6 +10,7 @@ import 'tabs/vehicles_tab.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/profile_tab.dart';
 import './branch/branch_map_screen.dart';
+import './customer_appointment_screen.dart';
 
 /// The root screen shown after successful login.
 /// Contains a Material 3 NavigationBar with 4 tabs and a side Drawer.
@@ -189,6 +190,16 @@ class _MainScreenState extends State<MainScreen> {
                   onTap: () {
                     Navigator.pop(context); // Đóng menu trượt trước khi chuyển trang
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchMapScreen()));
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.calendar_month,
+                  title: 'Lịch hẹn của tôi',
+                  subtitle: 'Theo dõi tiến độ bảo dưỡng',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerAppointmentScreen()));
                   },
                 ),
                 _buildDrawerItem(

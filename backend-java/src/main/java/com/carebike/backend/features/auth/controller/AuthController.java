@@ -8,10 +8,7 @@ import com.carebike.backend.features.auth.entity.Role;
 import com.carebike.backend.features.auth.repository.UserRepository;
 import com.carebike.backend.features.auth.repository.RoleRepository;
 import com.carebike.backend.features.auth.service.UserService;
-
-// 👉 IMPORT THÊM REPOSITORY CỦA NHÁNH (Để tìm branchId)
 import com.carebike.backend.features.branch.repository.BranchRepository;
-
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,11 +25,7 @@ public class AuthController {
     private final UserService userService;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    
-    // 👉 KHAI BÁO THÊM BRANCH REPOSITORY
     private final BranchRepository branchRepository;
-
-    // 👉 ĐƯA BRANCH REPOSITORY VÀO HÀM TẠO (CONSTRUCTOR)
     public AuthController(UserService userService, UserRepository userRepository, RoleRepository roleRepository, BranchRepository branchRepository) {
         this.userService = userService;
         this.userRepository = userRepository;
@@ -119,7 +112,6 @@ public class AuthController {
             responseData.put("dob", user.getDob() != null ? user.getDob().toString() : "");
             responseData.put("gender", user.getGender() != null ? user.getGender() : "");
 
-            // 👉 THÊM LOGIC: NẾU LÀ TÀI KHOẢN CHI NHÁNH, LẤY BRANCH ID TỪ DATABASE
             if ("BRANCH".equalsIgnoreCase(roleName)) {
                 branchRepository.findByManagerId(user.getId()).ifPresent(branch -> {
                     responseData.put("branchId", branch.getId());
@@ -176,7 +168,6 @@ public class AuthController {
                 responseData.put("dob", loggedInUser.getDob() != null ? loggedInUser.getDob().toString() : "");
                 responseData.put("gender", loggedInUser.getGender() != null ? loggedInUser.getGender() : "");
 
-                // 👉 CŨNG PHẢI THÊM VÀO ĐÂY ĐỂ ĐỒNG BỘ SESSION KHI F5 APP
                 if ("BRANCH".equalsIgnoreCase(roleName)) {
                     branchRepository.findByManagerId(loggedInUser.getId()).ifPresent(branch -> {
                         responseData.put("branchId", branch.getId());

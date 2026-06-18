@@ -21,39 +21,38 @@ public class RescueController {
     @Autowired
     private RescueRepository rescueRepository;
 
-    // API 1: Dành cho App Flutter gửi yêu cầu cứu hộ
+    /**
+     * POST /api/rescues
+     * API xử lý yêu cầu tạo ca cứu hộ mới từ ứng dụng di động.
+     * Các lỗi validation sẽ được xử lý tập trung thông qua GlobalExceptionHandler.
+     */
     @PostMapping
     public ResponseEntity<?> requestRescue(@RequestBody RescueRequestDto dto) {
-        try {
-            Rescue savedRescue = rescueService.createRescueRequest(dto);
-            return ResponseEntity.ok(savedRescue);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        Rescue savedRescue = rescueService.createRescueRequest(dto);
+        return ResponseEntity.ok(savedRescue);
     }
 
-    // API 2: Dành cho React Admin lấy danh sách ca cứu hộ của chi nhánh mình
+    /**
+     * GET /api/rescues/branch/{branchId}
+     * API truy xuất danh sách các ca cứu hộ thuộc về một chi nhánh cụ thể.
+     * Ghi chú: Cần bổ sung cơ chế phân trang (Pagination) để tối ưu hiệu suất truy vấn.
+     */
     @GetMapping("/branch/{branchId}")
     public ResponseEntity<?> getRescuesByBranch(@PathVariable Long branchId) {
-        try {
-            List<Rescue> list = rescueService.getRescuesByBranch(branchId);
-            return ResponseEntity.ok(list);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        List<Rescue> list = rescueService.getRescuesByBranch(branchId);
+        return ResponseEntity.ok(list);
     }
 
-    // Update rescue status
+    /**
+     * PUT /api/rescues/{id}/accept
+     * API cập nhật trạng thái ca cứu hộ khi chi nhánh xác nhận tiếp nhận.
+     */
     @PutMapping("/{id}/accept")
     public ResponseEntity<?> acceptRescue(@PathVariable Long id) {
-        try {
-            Rescue rescue = rescueRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ca cứu hộ"));
-            
-            rescue.setStatus("ACCEPTED"); // Đổi trạng thái sang Đã nhận
-            return ResponseEntity.ok(rescueRepository.save(rescue));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
-        }
+        Rescue rescue = rescueRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy ca cứu hộ"));
+        
+        rescue.setStatus("ACCEPTED"); // Đổi trạng thái sang Đã nhận
+        return ResponseEntity.ok(rescueRepository.save(rescue));
     }
 }

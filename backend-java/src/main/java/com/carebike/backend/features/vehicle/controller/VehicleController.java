@@ -32,23 +32,15 @@ public class VehicleController {
 
     /**
      * PUT /api/vehicles/owner/{userId}
-     * Create or update the vehicle profile for a specific customer.
+     * Khởi tạo hoặc cập nhật hồ sơ phương tiện của khách hàng.
+     * Xử lý ngoại lệ ConstraintViolation (như trùng biển số) được thực hiện tại tầng GlobalExceptionHandler.
      */
    @PutMapping("/owner/{userId}")
     public ResponseEntity<?> saveVehicle(
             @PathVariable Integer userId,
             @RequestBody VehicleRequest request) {
-        try {
-            Vehicle saved = vehicleService.saveVehicle(userId, request);
-            return ResponseEntity.ok(saved);
-        } catch (Exception e) {
-            // Ép hệ thống phải in lỗi ra màn hình Console của Spring Boot
-            System.err.println("==== LỖI KHI LƯU XE THỨ 2 ====");
-            e.printStackTrace(); 
-            
-            // Trả mã lỗi 400 về cho điện thoại
-            return ResponseEntity.badRequest().body(java.util.Map.of("message", "Lỗi DB: " + e.getMessage()));
-        }
+        Vehicle saved = vehicleService.saveVehicle(userId, request);
+        return ResponseEntity.ok(saved);
     }
 
     /**

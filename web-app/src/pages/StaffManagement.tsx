@@ -3,6 +3,9 @@ import { UserCog, Plus, Lock, Unlock, Trash2 } from 'lucide-react';
 import { apiGetAllUsers, apiToggleUserStatus, apiDeleteUser } from '../services/userService';
 import type { UserRecord } from '../services/userService';
 import StaffModal from '../components/modals/StaffModal';
+import toast from 'react-hot-toast';
+
+
 
 
 const StaffManagement = () => {
@@ -31,7 +34,7 @@ const StaffManagement = () => {
             await apiToggleUserStatus(id);
             fetchStaffs(); // Refresh lại danh sách sau khi khóa/mở
         } catch (error) {
-            alert("Không thể thay đổi trạng thái tài khoản này.");
+            toast.error("Không thể thay đổi trạng thái tài khoản này.");
         }
     };
 
@@ -41,12 +44,12 @@ const StaffManagement = () => {
 
         try {
             await apiDeleteUser(id);
-            alert("Đã xóa tài khoản thành công!");
-            fetchStaffs(); // Tải lại danh sách mới sạch sẽ
+            toast.success("Đã xóa tài khoản thành công!");
+            fetchStaffs(); // Tải lại danh sách sau khi xóa
         } catch (error: any) {
             // Hiển thị câu chặn của Backend lên màn hình (Ví dụ: Đang bận quản lý chi nhánh)
             const msg = error?.response?.data?.message ?? "Không thể xóa tài khoản này.";
-            alert(msg);
+            toast.error(msg);
         }
     };
 

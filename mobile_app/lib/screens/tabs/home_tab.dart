@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/branch.dart';
-import '../../models/appointment.dart';
 import '../../widgets/loading_button.dart';
 
 class HomeTab extends StatefulWidget {
@@ -25,14 +24,10 @@ class _HomeTabState extends State<HomeTab> {
   String? _bookingError;
   String? _bookingSuccess;
 
-  List<Appointment> _appointments = [];
-  bool _appointmentsLoading = false;
-
   @override
   void initState() {
     super.initState();
     _loadBranches();
-    _loadAppointments();
   }
 
   @override
@@ -49,23 +44,6 @@ class _HomeTabState extends State<HomeTab> {
       });
     } catch (_) {
       setState(() => _branchesLoading = false);
-    }
-  }
-
-  Future<void> _loadAppointments() async {
-    final userId = context.read<AuthProvider>().mysqlUser?['userId'];
-    if (userId == null) return;
-
-    setState(() => _appointmentsLoading = true);
-    try {
-      final response = await ApiClient.get('/appointments/customer/$userId');
-      final data = ApiClient.parseResponse(response) as List;
-      setState(() {
-        _appointments = data.take(5).map((e) => Appointment.fromJson(e as Map<String, dynamic>)).toList();
-        _appointmentsLoading = false;
-      });
-    } catch (_) {
-      setState(() => _appointmentsLoading = false);
     }
   }
 
@@ -119,20 +97,18 @@ class _HomeTabState extends State<HomeTab> {
         _selectedBranch = null; _selectedDate = null; _selectedTime = null;
         _noteCtrl.clear();
       });
-      _loadAppointments();
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) { // Kiểm tra xem người dùng còn ở màn hình này không
+          setState(() {
+            _bookingSuccess = null;
+          });
+        }
+      });
     } on ApiException catch (e) {
       setState(() { _bookingError = e.message; _isBooking = false; });
     } catch (_) {
       setState(() { _bookingError = 'Có lỗi xảy ra. Vui lòng thử lại.'; _isBooking = false; });
     }
-  }
-
-  Future<void> _cancelAppointment(int id) async {
-    try {
-      final response = await ApiClient.put('/appointments/$id/cancel', {});
-      ApiClient.parseResponse(response);
-      _loadAppointments();
-    } catch (_) {}
   }
 
   @override
@@ -146,7 +122,7 @@ class _HomeTabState extends State<HomeTab> {
     return Scaffold(
       backgroundColor: scheme.surface,
       body: RefreshIndicator(
-        onRefresh: () async { await _loadBranches(); await _loadAppointments(); },
+        onRefresh: () async { await _loadBranches(); },
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
@@ -156,13 +132,11 @@ class _HomeTabState extends State<HomeTab> {
               backgroundColor: scheme.primaryContainer,
               surfaceTintColor: Colors.transparent,
 
-              // ── NÚT TOGGLE MENU (HAMBURGER) ──
               leading: Builder(
                 builder: (BuildContext context) {
                   return IconButton(
                     icon: Icon(Icons.menu_rounded, size: 28, color: scheme.onPrimaryContainer),
                     onPressed: () {
-                      // Kích hoạt mở cái Drawer bên ngoài MainScreen
                       context.findRootAncestorStateOfType<ScaffoldState>()?.openDrawer();
                     },
                     tooltip: 'Mở Menu',
@@ -254,21 +228,6 @@ class _HomeTabState extends State<HomeTab> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    _SectionCard(
-                      title: 'Lịch hẹn gần đây', icon: Icons.history_rounded,
-                      child: _appointmentsLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : _appointments.isEmpty
-                          ? const _EmptyState(message: 'Chưa có lịch hẹn nào.')
-                          : Column(
-                        children: _appointments.map((apt) => _AppointmentTile(
-                          appointment: apt,
-                          onCancel: apt.canCancel ? () => _cancelAppointment(apt.id) : null,
-                        )).toList(),
-                      ),
-                    ),
                     const SizedBox(height: 80),
                   ],
                 ),
@@ -281,7 +240,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-// ── Các Helper widgets giữ nguyên 100% ────────────────────────────────────────
+// ── Các Helper widgets ────────────────────────────────────────
 
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -371,87 +330,4 @@ class _Banner extends StatelessWidget {
       ]),
     );
   }
-}
-
-class _AppointmentTile extends StatelessWidget {
-  final Appointment appointment;
-  final VoidCallback? onCancel;
-  const _AppointmentTile({required this.appointment, this.onCancel});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Color statusColor;
-    switch (appointment.status) {
-      case 'CONFIRMED':  statusColor = Colors.green;       break;
-      case 'COMPLETED':  statusColor = scheme.primary;     break;
-      case 'CANCELLED':  statusColor = scheme.error;       break;
-      default:           statusColor = Colors.orange;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(appointment.branchName ?? 'Chi nhánh',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                const SizedBox(height: 2),
-                Text(appointment.formattedDate,
-                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
-                if (appointment.note != null && appointment.note!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(appointment.note!, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(appointment.statusLabel,
-                    style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
-              ),
-              if (onCancel != null) ...[
-                const SizedBox(height: 4),
-                GestureDetector(
-                  onTap: onCancel,
-                  child: Text('Hủy lịch', style: TextStyle(fontSize: 11, color: scheme.error)),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String message;
-  const _EmptyState({required this.message});
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-    ),
-  );
 }

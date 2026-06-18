@@ -17,8 +17,8 @@ class AuthProvider with ChangeNotifier {
       _firebaseUser = user;
 
       if (user != null) {
-        // FIX LỖI ĐỤNG ĐỘ GOOGLE 2 LẦN BẤM:
-        // Chỉ tự động đồng bộ khi KHÔNG phải đang bấm nút đăng nhập (nghĩa là mở app lên tự login)
+        // Kiểm soát trạng thái đăng nhập tự động:
+        // Đảm bảo chỉ thực hiện đồng bộ với server khi ứng dụng tự khởi tạo phiên bản (không qua tương tác nút nhấn).
         if (_mysqlUser == null && !_isLoading) {
           try {
             await _syncWithSpringBoot(user);
@@ -47,7 +47,7 @@ class AuthProvider with ChangeNotifier {
    * TRƯỜNG HỢP 1 & 3: ĐĂNG NHẬP BẰNG GOOGLE
    */
   Future<void> signInWithGoogle(BuildContext context) async {
-    _isLoading = true; // Bật Loading để chặn cái Lắng nghe bên trên lại
+    _isLoading = true; // Kích hoạt cờ tải dữ liệu để khóa luồng lắng nghe trạng thái nền.
     notifyListeners();
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();

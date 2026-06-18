@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Gọi API lấy thông tin mới nhất từ Backend (bao gồm Role)
         const backendData = await apiGetMe(token);
 
-        // ──── BUSINESS RULE: Chặn Customer nếu vô tình F5 ────────────
+        // ──── XỬ LÝ NGHIỆP VỤ: Ngăn chặn tài khoản Customer truy cập Web Admin ────────────
         if (backendData.role === 'CUSTOMER') {
           await signOut(auth);
           throw new Error('Unauthorized');
@@ -189,8 +189,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 2. Lấy Firebase Token
       const token = await userCredential.user.getIdToken();
 
-      // 3. Gửi Token lên Backend để đồng bộ.
-      // NẾU LÀ CUSTOMER, BỊ SPRING BOOT CHẶN -> SẼ NÉM LỖI AXIOS 403 XUỐNG CATCH NGAY TẠI ĐÂY!
+      // 3. Đồng bộ Token với Backend. 
+      // Phân quyền phía máy chủ sẽ tự động từ chối nếu người dùng là Customer.
       const response = await apiLogin(token);
 
       // (Đoạn if check CUSTOMER cũ ở đây đã được xóa bỏ vì Spring Boot đã lo việc đó)
@@ -225,7 +225,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     } catch (error: any) {
       // ====================================================================
-      // XỬ LÝ LỖI: DỌN DẸP VÀ CHUYỂN MÃ LỖI THÀNH TIẾNG VIỆT
+      // XỬ LÝ NGOẠI LỆ: Xóa phiên đăng nhập lỗi và phiên dịch mã lỗi
       // ====================================================================
       
       // Dọn dẹp session Firebase ngay lập tức nếu Backend từ chối
@@ -235,7 +235,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // 1. Lỗi từ Spring Boot (Axios Error: Lỗi 403 phân quyền, khóa tài khoản...)
       if (error.response && error.response.data && error.response.data.message) {
-        throw new Error(error.response.data.message); // Quăng đúng câu tiếng Việt xịn xò của Spring Boot ra UI
+        throw new Error(error.response.data.message); // Hiển thị nguyên trạng thông báo lỗi từ phía Spring Boot
       }
 
       // 2. Lỗi từ Firebase (Sai pass, block, mất mạng...)
