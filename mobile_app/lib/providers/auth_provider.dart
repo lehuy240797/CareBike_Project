@@ -17,13 +17,13 @@ class AuthProvider with ChangeNotifier {
       _firebaseUser = user;
 
       if (user != null) {
-        // Kiểm soát trạng thái đăng nhập tự động:
-        // Đảm bảo chỉ thực hiện đồng bộ với server khi ứng dụng tự khởi tạo phiên bản (không qua tương tác nút nhấn).
+        // Control auto-login state:
+        // Only sync with the server when the app restores the session itself (not via a button press).
         if (_mysqlUser == null && !_isLoading) {
           try {
             await _syncWithSpringBoot(user);
           } catch (e) {
-            debugPrint("Lỗi đồng bộ phiên làm việc: $e");
+            debugPrint("Session sync error: $e");
             await logout();
           }
         }
@@ -44,10 +44,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   /**
-   * TRƯỜNG HỢP 1 & 3: ĐĂNG NHẬP BẰNG GOOGLE
+   * CASE 1 & 3: SIGN IN WITH GOOGLE
    */
   Future<void> signInWithGoogle(BuildContext context) async {
-    _isLoading = true; // Kích hoạt cờ tải dữ liệu để khóa luồng lắng nghe trạng thái nền.
+    _isLoading = true; // Set the loading flag to lock the background auth-state listener.
     notifyListeners();
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -63,10 +63,10 @@ class AuthProvider with ChangeNotifier {
         idToken: googleAuth.idToken,
       );
 
-      // 1. Đăng nhập vào Firebase
+      // 1. Sign in to Firebase
       UserCredential userCredential = await _auth.signInWithCredential(credential);
 
-      // 2. Gửi Token xuống Spring Boot để lấy thông tin
+      // 2. Send the token to Spring Boot to fetch user info
       await _syncWithSpringBoot(userCredential.user);
 
     } catch (e) {
@@ -80,7 +80,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   /**
-   * TRƯỜNG HỢP 2: ĐĂNG KÝ BẰNG FORM TRUYỀN THỐNG
+   * CASE 2: REGISTER WITH THE STANDARD FORM
    */
   Future<bool> registerWithEmailForm(BuildContext context, {
     required String email,
@@ -113,7 +113,7 @@ class AuthProvider with ChangeNotifier {
           await credential.user?.delete();
         }
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? "Hệ thống đang bận. Vui lòng thử lại sau.");
+        throw Exception(errorData['message'] ?? "The system is busy. Please try again later.");
       }
 
       await logout();
@@ -129,7 +129,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   /**
-   * ĐĂNG NHẬP BẰNG FORM TRUYỀN THỐNG
+   * SIGN IN WITH THE STANDARD FORM
    */
   Future<void> signInWithEmailForm(BuildContext context, String email, String password) async {
     _isLoading = true;
@@ -154,7 +154,7 @@ class AuthProvider with ChangeNotifier {
     if (email.trim().isEmpty) return;
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
-      _showSuccessDialog(context, "Gửi thành công", "Liên kết đặt lại mật khẩu đã được gửi vào hòm thư của bạn. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.");
+      _showSuccessDialog(context, "Email sent", "A password reset link has been sent to your inbox. Please check your inbox or spam folder.");
     } catch (e) {
       _showErrorDialog(context, _getFriendlyErrorMessage(e.toString()));
     }
@@ -166,8 +166,8 @@ class AuthProvider with ChangeNotifier {
     if (isGoogleAccount) {
       _showErrorDialog(
           context,
-          "Tài khoản của bạn đang được bảo vệ bởi Google. Để thay đổi mật khẩu, vui lòng thao tác trên trang Quản lý tài khoản Google của bạn.",
-          title: "Thông báo"
+          "Your account is protected by Google. To change your password, please use your Google Account settings.",
+          title: "Notice"
       );
       return;
     }
@@ -180,11 +180,11 @@ class AuthProvider with ChangeNotifier {
       await _firebaseUser!.reauthenticateWithCredential(credential);
       await _firebaseUser!.updatePassword(newPassword);
 
-      _showSuccessDialog(context, "Thành công", "Mật khẩu của bạn đã được cập nhật an toàn.");
+      _showSuccessDialog(context, "Success", "Your password has been updated securely.");
     } catch (e) {
       String errorMsg = e.toString();
       if (errorMsg.contains('wrong-password') || errorMsg.contains('invalid-credential')) {
-        _showErrorDialog(context, "Mật khẩu hiện tại không chính xác. Vui lòng kiểm tra lại.");
+        _showErrorDialog(context, "Your current password is incorrect. Please check again.");
       } else {
         _showErrorDialog(context, _getFriendlyErrorMessage(errorMsg));
       }
@@ -210,7 +210,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     } else {
       final errorData = jsonDecode(response.body);
-      throw Exception(errorData['message'] ?? "Lý do bảo mật: Hệ thống từ chối quyền truy cập.");
+      throw Exception(errorData['message'] ?? "Security reason: access was denied by the system.");
     }
   }
 
@@ -222,7 +222,7 @@ class AuthProvider with ChangeNotifier {
         await _googleSignIn.signOut();
       }
     } catch (e) {
-      debugPrint("Lỗi dọn dẹp phiên đăng xuất: $e");
+      debugPrint("Logout cleanup error: $e");
     } finally {
       _mysqlUser = null;
       notifyListeners();
@@ -231,19 +231,19 @@ class AuthProvider with ChangeNotifier {
 
   String _getFriendlyErrorMessage(String rawError) {
     final error = rawError.toLowerCase();
-    if (error.contains('email-already-in-use')) return "Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng một email khác.";
-    if (error.contains('invalid-credential') || error.contains('wrong-password') || error.contains('user-not-found')) return "Thông tin đăng nhập không chính xác. Vui lòng kiểm tra lại email hoặc mật khẩu.";
-    if (error.contains('user-disabled')) return "Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ tổng đài để được hỗ trợ.";
-    if (error.contains('too-many-requests')) return "Bạn đã thao tác sai quá nhiều lần. Vui lòng thử lại sau ít phút để bảo đảm an toàn.";
-    if (error.contains('network-request-failed')) return "Không có kết nối mạng. Vui lòng kiểm tra lại Wifi/4G của bạn.";
-    if (error.contains('invalid-email')) return "Định dạng email không hợp lệ. Ví dụ đúng: tenban@gmail.com";
+    if (error.contains('email-already-in-use')) return "This email is already in use. Please sign in or use a different email.";
+    if (error.contains('invalid-credential') || error.contains('wrong-password') || error.contains('user-not-found')) return "Incorrect login details. Please check your email or password.";
+    if (error.contains('user-disabled')) return "Your account has been suspended. Please contact support for help.";
+    if (error.contains('too-many-requests')) return "Too many failed attempts. Please try again in a few minutes for your security.";
+    if (error.contains('network-request-failed')) return "No network connection. Please check your Wifi/4G.";
+    if (error.contains('invalid-email')) return "Invalid email format. Correct example: yourname@gmail.com";
 
     String cleanError = rawError.replaceAll(RegExp(r'^Exception:\s*'), '').trim();
-    if (cleanError.contains('PlatformException')) return "Đã xảy ra sự cố kết nối với hệ thống đăng nhập. Vui lòng thử lại.";
-    return cleanError.isNotEmpty ? cleanError : "Hệ thống đang bảo trì hoặc gặp sự cố. Vui lòng thử lại sau.";
+    if (cleanError.contains('PlatformException')) return "A connection problem occurred with the login system. Please try again.";
+    return cleanError.isNotEmpty ? cleanError : "The system is under maintenance or experiencing an issue. Please try again later.";
   }
 
-  void _showErrorDialog(BuildContext context, String message, {String title = "Đã xảy ra lỗi"}) {
+  void _showErrorDialog(BuildContext context, String message, {String title = "An error occurred"}) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -256,7 +256,7 @@ class AuthProvider with ChangeNotifier {
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 15, height: 1.4)),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Đóng", style: TextStyle(fontSize: 16)))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close", style: TextStyle(fontSize: 16)))],
       ),
     );
   }
@@ -274,7 +274,7 @@ class AuthProvider with ChangeNotifier {
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 15, height: 1.4)),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Xác nhận", style: TextStyle(fontSize: 16)))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(fontSize: 16)))],
       ),
     );
   }

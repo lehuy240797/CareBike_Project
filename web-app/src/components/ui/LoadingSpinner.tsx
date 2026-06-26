@@ -16,7 +16,7 @@ const LoadingSpinner = ({
   className = '',
 }: LoadingSpinnerProps) => (
   <svg
-    className={`spinner ${className}`}
+    className={`animate-spin-fast ${className}`}
     width={size}
     height={size}
     viewBox="0 0 24 24"

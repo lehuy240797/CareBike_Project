@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/loading_button.dart';
 import '../../providers/auth_provider.dart';
@@ -57,28 +59,28 @@ class _CreateMaintenanceScreenState extends State<CreateMaintenanceScreen> {
       }
 
       if (currentBranchId == null) {
-        throw Exception('Không tìm thấy chi nhánh của bạn. Bạn có phải là quản lý chi nhánh không?');
+        throw Exception('Your branch was not found. Are you a branch manager?');
       }
 
-      // Đẩy phiếu bảo dưỡng lên Spring Boot
+      // Push the maintenance record to Spring Boot
       await ApiClient.post('/maintenance', {
         'serviceDate': DateTime.now().toIso8601String().split('T')[0],
         'currentKm': int.tryParse(_currentKmCtrl.text) ?? 0,
         'serviceDetails': _serviceDetailsCtrl.text,
         'totalCost': double.tryParse(_totalCostCtrl.text.replaceAll('.', '')) ?? 0.0,
-        'customerId': widget.customerId, // Lấy ID trực tiếp từ mã QR
+        'customerId': widget.customerId, // Get the ID directly from the QR code
         'branchId': currentBranchId,
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tạo phiếu bảo dưỡng thành công!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Maintenance record created successfully!'), backgroundColor: Colors.green),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Có lỗi xảy ra: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -88,49 +90,81 @@ class _CreateMaintenanceScreenState extends State<CreateMaintenanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tạo phiếu bảo dưỡng')),
+      backgroundColor: AppColors.canvas,
+      appBar: AppBar(
+        title: const Text('Create maintenance record'),
+        titleTextStyle: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.ink),
+        centerTitle: true,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Đã đổi từ Hiển thị thông tin Xe sang thông tin Khách hàng
-              Card(
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.teal,
-                    child: Icon(Icons.person, color: Colors.white),
-                  ),
-                  title: Text(widget.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('ID Hệ thống: CB-${widget.customerId}'),
+              // Switched from showing vehicle info to customer info
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.edge),
+                  boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 8))],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50, height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        gradient: AppStyles.brandGradient,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: const Icon(Icons.person_rounded, color: Colors.white, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.customerName, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                          const SizedBox(height: 2),
+                          Text('System ID: CB-${widget.customerId}', style: TextStyle(fontSize: 13, color: AppColors.inkMuted, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              const Text('Chi tiết sửa chữa', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 26),
+              Text('Repair details', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.ink)),
               const SizedBox(height: 16),
 
               AppTextField(
-                label: 'Phụ tùng linh kiện đã thay', controller: _serviceDetailsCtrl, hint: 'VD: Thay nhớt, Thay lốp...',
-                validator: (v) => v == null || v.isEmpty ? 'Vui lòng nhập chi tiết' : null,
+                label: 'Parts replaced', controller: _serviceDetailsCtrl, hint: 'e.g. Oil change, tire replacement...',
+                validator: (v) => v == null || v.isEmpty ? 'Please enter the details' : null,
               ),
               const SizedBox(height: 16),
 
               AppTextField(
-                label: 'Số Km hiện tại', controller: _currentKmCtrl, keyboardType: TextInputType.number,
-                validator: (v) => v == null || v.isEmpty ? 'Vui lòng nhập số km' : null,
+                label: 'Current km', controller: _currentKmCtrl, keyboardType: TextInputType.number,
+                validator: (v) => v == null || v.isEmpty ? 'Please enter the km' : null,
               ),
               const SizedBox(height: 16),
 
               AppTextField(
-                label: 'Tổng tiền (VNĐ)', controller: _totalCostCtrl, keyboardType: TextInputType.number,
-                validator: (v) => v == null || v.isEmpty ? 'Vui lòng nhập tổng tiền' : null,
+                label: 'Total (VND)', controller: _totalCostCtrl, keyboardType: TextInputType.number,
+                validator: (v) => v == null || v.isEmpty ? 'Please enter the total' : null,
               ),
 
               const SizedBox(height: 32),
               LoadingButton(
-                label: 'Lưu phiếu bảo dưỡng',
+                label: 'Save maintenance record',
                 isLoading: _isLoading,
                 onPressed: _submit,
               ),

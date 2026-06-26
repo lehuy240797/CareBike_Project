@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/web_socket_service.dart';
 
@@ -26,10 +28,10 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
     super.initState();
     _fetchAppointments();
     
-    // Lắng nghe sự kiện WebSocket từ luồng stream toàn cục
+    // Listen to WebSocket events from the global stream
     _wsSubscription = WebSocketService.appointmentStreamController.stream.listen((updatedData) {
       if (mounted) {
-        // Tự động reload danh sách mà không cần kéo pull-to-refresh
+        // Auto-reload the list without pull-to-refresh
         _fetchAppointments();
       }
     });
@@ -79,7 +81,7 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
       if (mounted) {
         setState(() => isLoading = false);
       }
-      debugPrint("Lỗi tải danh sách lịch hẹn: $e");
+      debugPrint("Error loading the appointment list: $e");
     }
   }
 
@@ -90,40 +92,40 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
 
     switch (status) {
       case 'PENDING':
-        bgColor = Colors.orange.shade100;
-        textColor = Colors.orange.shade800;
-        text = 'Chờ xác nhận';
+        bgColor = AppColors.primaryMuted;
+        textColor = AppColors.primaryDeep;
+        text = 'Pending';
         break;
       case 'CONFIRMED':
-        bgColor = Colors.green.shade100;
-        textColor = Colors.green.shade800;
-        text = 'Đã xác nhận';
+        bgColor = AppColors.successBg;
+        textColor = AppColors.success;
+        text = 'Confirmed';
         break;
       case 'COMPLETED':
-        bgColor = Colors.blue.shade100;
-        textColor = Colors.blue.shade800;
-        text = 'Đã hoàn tất';
+        bgColor = const Color(0xFFEFF4FF);
+        textColor = const Color(0xFF2563EB);
+        text = 'Completed';
         break;
       case 'CANCELLED':
-        bgColor = Colors.red.shade100;
-        textColor = Colors.red.shade800;
-        text = 'Đã hủy';
+        bgColor = AppColors.dangerBg;
+        textColor = AppColors.danger;
+        text = 'Cancelled';
         break;
       default:
-        bgColor = Colors.grey.shade200;
-        textColor = Colors.grey.shade800;
-        text = 'Không rõ';
+        bgColor = const Color(0xFFF1EDE8);
+        textColor = AppColors.inkMuted;
+        text = 'Unknown';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,
-        style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12),
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 12),
       ),
     );
   }
@@ -131,88 +133,115 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Lịch hẹn của tôi'),
+        title: const Text('My Appointments'),
+        titleTextStyle: GoogleFonts.poppins(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.ink),
         centerTitle: true,
+        backgroundColor: AppColors.canvas,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leadingWidth: 64,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: BorderRadius.circular(13),
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: AppColors.edge),
+              ),
+              child: Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.ink),
+            ),
+          ),
+        ),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
           : appointments.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.calendar_today_outlined, size: 64, color: Colors.grey.shade400),
+                      Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.edge),
                       const SizedBox(height: 16),
                       Text(
-                        'Bạn chưa có lịch hẹn nào',
-                        style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                        'You have no appointments yet',
+                        style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.inkMuted),
                       ),
                     ],
                   ),
                 )
               : RefreshIndicator(
+                  color: AppColors.primary,
                   onRefresh: _fetchAppointments,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                     itemCount: appointments.length,
                     itemBuilder: (context, index) {
                       final apt = appointments[index];
                       final DateTime date = DateTime.parse(apt['appointmentDate']).toLocal();
-                      final String formattedDate = DateFormat('HH:mm - dd/MM/yyyy').format(date);
-                      final String branchName = apt['branch']?['name'] ?? 'Chi nhánh không xác định';
-                      final String note = apt['note'] ?? 'Không có ghi chú';
+                      final String formattedDate = '${DateFormat('HH:mm').format(date)} — ${DateFormat('EEE, dd MMM yyyy').format(date)}';
+                      final String branchName = apt['branch']?['name'] ?? 'Unknown branch';
+                      final String note = apt['note'] ?? 'No note';
 
-                      return Card(
-                        elevation: 2,
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      branchName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.edge),
+                          boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.06), blurRadius: 22, offset: const Offset(0, 8))],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    branchName,
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.ink),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  _buildStatusBadge(apt['status']),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Icon(Icons.access_time_rounded, size: 16, color: Colors.grey.shade600),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    formattedDate,
-                                    style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusBadge(apt['status']),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.access_time_rounded, size: 16, color: AppColors.inkMuted),
+                                const SizedBox(width: 8),
+                                Text(
+                                  formattedDate,
+                                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600, fontSize: 13.5),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 9),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.notes_rounded, size: 16, color: AppColors.inkMuted),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    note,
+                                    style: TextStyle(color: AppColors.inkMuted, height: 1.3),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.notes, size: 16, color: Colors.grey.shade600),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      note,
-                                      style: TextStyle(color: Colors.grey.shade700),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       );
                     },

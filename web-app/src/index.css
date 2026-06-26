@@ -1,46 +1,168 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@400;600;700;900&family=Poppins:wght@300;400;500;600;700;800&family=Racing+Sans+One&family=Roboto:wght@300;400;500;700&display=swap");
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CareBike "Energize" theme tokens — drives Tailwind utilities
+   (bg-primary, text-primary, font-display, shadow-glow, animate-fade-up, …)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Fonts — ported from my-app design system */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Poppins', 'Inter', system-ui, sans-serif;
+  --font-racing: 'Racing Sans One', system-ui, sans-serif;  /* brand / logo  */
+  --font-orb: 'Orbitron', system-ui, sans-serif;            /* nav / labels  */
+  --font-exo: 'Exo 2', system-ui, sans-serif;               /* menus / body  */
+  --font-pop: 'Poppins', system-ui, sans-serif;             /* subtitles     */
+  --font-roboto: 'Roboto', system-ui, sans-serif;
+
+  /* Brand — bright energetic orange */
+  --color-primary: #f97316;
+  --color-primary-hover: #ea580c;
+  --color-primary-deep: #c2410c;
+  --color-primary-bright: #fb923c;
+  --color-primary-light: #fff7ed;
+  --color-primary-muted: #ffedd5;
+
+  /* Warm neutrals */
+  --color-ink: #1c1917;
+  --color-ink-muted: #78716c;
+  --color-surface: #ffffff;
+  --color-canvas: #fdf9f5;
+  --color-edge: #f0e9e1;
+  --color-edge-soft: #f7f1ea;
+
+  /* Glow shadows */
+  --shadow-glow: 0 8px 24px rgba(249, 115, 22, 0.30);
+  --shadow-glow-sm: 0 4px 14px rgba(249, 115, 22, 0.28);
+  --shadow-soft: 0 1px 3px rgba(124, 45, 18, 0.08), 0 1px 2px rgba(124, 45, 18, 0.05);
+  --shadow-card: 0 8px 24px rgba(124, 45, 18, 0.10);
+  --shadow-float: 0 20px 50px rgba(124, 45, 18, 0.16);
+
+  /* Easing */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-fluid: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Animations */
+  --animate-fade-up: fade-up 0.6s var(--ease-fluid) forwards;
+  --animate-fade-in: fade-in 0.4s var(--ease-fluid);
+  --animate-page-in: page-in 0.34s var(--ease-fluid) both;
+  --animate-page-out: page-out 0.18s ease both;
+  --animate-scale-in: scale-in 0.5s var(--ease-fluid) both;
+  --animate-aurora: aurora-drift 18s ease-in-out infinite alternate;
+  --animate-gradient: gradient-pan 6s ease infinite;
+  --animate-gradient-slow: gradient-pan 14s ease infinite;
+  --animate-float: float-soft 4s ease-in-out infinite;
+  --animate-spin-fast: spin 0.75s linear infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes page-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes aurora-drift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    50%  { transform: translate3d(2%, -2%, 0) scale(1.08); }
+    100% { transform: translate3d(-2%, 2%, 0) scale(1.04); }
+  }
+  @keyframes gradient-pan {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes float-soft {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
 }
 
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base globals
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--color-ink);
+    background: var(--color-canvas);
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+
+  /* Warm text selection */
+  ::selection {
+    background: rgba(249, 115, 22, 0.22);
+    color: var(--color-primary-deep);
+  }
+
+  /* Custom gradient scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary-bright) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(var(--color-primary-bright), var(--color-primary));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(var(--color-primary), var(--color-primary-hover));
+    background-clip: padding-box;
+  }
+
+  /* Accessible keyboard focus */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--color-text);
-  background: var(--color-bg);
-}
-
-#root {
-  min-height: 100vh;
-  width: 100%;
-}
-
-a {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-button,
-input {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

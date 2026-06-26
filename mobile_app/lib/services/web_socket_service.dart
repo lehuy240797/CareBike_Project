@@ -8,62 +8,66 @@ class WebSocketService {
   static StompClient? _branchAppointmentStompClient;
   static final StreamController<Map<String, dynamic>> appointmentStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
-  /// Hàm khởi tạo kết nối và lắng nghe đơn hàng của khách
+  /// Open the connection and listen for the customer's orders
   static void connectCustomer(int customerId, Function(Map<String, dynamic>) onStatusUpdated) {
-    // Nếu đang có kết nối cũ thì ngắt đi để tránh lặp (Memory leak)
+    // Disconnect any existing connection to avoid duplicates (memory leak)
     disconnect();
 
     _stompClient = StompClient(
       config: StompConfig(
-        // Dùng 10.0.2.2 cho máy ảo Android, nếu test máy thật phải dùng IP LAN (VD: 192.168.1.x)
+        // Use 10.0.2.2 for the Android emulator; on a real device use your LAN IP (e.g. 192.168.1.x)
         url: 'ws://10.0.2.2:8080/ws',
         onConnect: (StompFrame frame) {
-          debugPrint('Đã kết nối WebSocket (Khách hàng ID: $customerId)');
+          debugPrint('WebSocket connected (Customer ID: $customerId)');
 
-          // Lắng nghe đúng kênh của Khách hàng này
+          // Subscribe to this customer's channel
           _stompClient?.subscribe(
             destination: '/topic/customers/$customerId/appointments',
             callback: (StompFrame frame) {
               if (frame.body != null) {
                 final Map<String, dynamic> updatedData = jsonDecode(frame.body!);
-                // Gọi hàm callback để truyền data ra ngoài giao diện chính (Hiển thị SnackBar)
+                // Call the callback to pass data to the main UI (show SnackBar)
                 onStatusUpdated(updatedData);
-                // Phát tín hiệu ra Stream để màn hình danh sách (CustomerAppointmentScreen) tự động reload
+                // Emit to the stream so the list screen (CustomerAppointmentScreen) reloads automatically
                 appointmentStreamController.add(updatedData);
               }
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS: $error'),
-        reconnectDelay: const Duration(seconds: 5), // Tự động kết nối lại nếu rớt mạng
+        onWebSocketError: (dynamic error) => debugPrint('WS error: $error'),
+        reconnectDelay: const Duration(seconds: 5), // Auto-reconnect if the network drops
       ),
     );
 
     _stompClient?.activate();
   }
 
-  /// Hàm lắng nghe ca CỨU HỘ dành riêng cho Chi nhánh
+  /// Listen for RESCUE cases for a specific branch
   static void connectBranch(int branchId, Function(Map<String, dynamic>) onRescueReceived) {
-    disconnect(); // Ngắt kết nối cũ nếu có
+    // Reset only the rescue/customer client — leave the appointments client alone
+    // so a rescue connection doesn't tear down the appointments listener.
+    if (_stompClient != null && _stompClient!.connected) {
+      _stompClient?.deactivate();
+    }
 
     _stompClient = StompClient(
       config: StompConfig(
-        url: 'ws://10.0.2.2:8080/ws', // Nhớ đổi thành IP LAN nếu test máy thật
+        url: 'ws://10.0.2.2:8080/ws', // Remember to use your LAN IP on a real device
         onConnect: (StompFrame frame) {
-          debugPrint('📡 Đã bật Radar Cứu hộ (Chi nhánh ID: $branchId)');
+          debugPrint('📡 Rescue radar enabled (Branch ID: $branchId)');
 
-          // Lắng nghe kênh Cứu hộ của chi nhánh này (Giống y hệt bên React)
+          // Subscribe to this branch's rescue channel (same as the React side)
           _stompClient?.subscribe(
             destination: '/topic/branches/$branchId/rescues',
             callback: (StompFrame frame) {
               if (frame.body != null) {
                 final Map<String, dynamic> newRescue = jsonDecode(frame.body!);
-                onRescueReceived(newRescue); // Bắn dữ liệu ra giao diện
+                onRescueReceived(newRescue); // Push data to the UI
               }
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS Branch: $error'),
+        onWebSocketError: (dynamic error) => debugPrint('WS Branch error: $error'),
         reconnectDelay: const Duration(seconds: 5),
       ),
     );
@@ -71,7 +75,7 @@ class WebSocketService {
     _stompClient?.activate();
   }
 
-  /// Hàm lắng nghe LỊCH HẸN BẢO DƯỠNG dành riêng cho Chi nhánh
+  /// Listen for MAINTENANCE APPOINTMENTS for a specific branch
   static void connectBranchAppointments(int branchId, Function(Map<String, dynamic>) onAppointmentReceived) {
     if (_branchAppointmentStompClient != null && _branchAppointmentStompClient!.connected) {
       _branchAppointmentStompClient?.deactivate();
@@ -81,7 +85,7 @@ class WebSocketService {
       config: StompConfig(
         url: 'ws://10.0.2.2:8080/ws',
         onConnect: (StompFrame frame) {
-          debugPrint('📡 Đã bật Lắng nghe Lịch Hẹn (Chi nhánh ID: $branchId)');
+          debugPrint('📡 Appointment listener enabled (Branch ID: $branchId)');
           _branchAppointmentStompClient?.subscribe(
             destination: '/topic/branches/$branchId/appointments',
             callback: (StompFrame frame) {
@@ -92,7 +96,7 @@ class WebSocketService {
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS Branch Appointments: $error'),
+        onWebSocketError: (dynamic error) => debugPrint('WS Branch Appointments error: $error'),
         reconnectDelay: const Duration(seconds: 5),
       ),
     );
@@ -103,11 +107,11 @@ class WebSocketService {
   static void disconnect() {
     if (_stompClient != null && _stompClient!.connected) {
       _stompClient?.deactivate();
-      debugPrint('Đã ngắt kết nối WebSocket (Customer/Rescue).');
+      debugPrint('WebSocket disconnected (Customer/Rescue).');
     }
     if (_branchAppointmentStompClient != null && _branchAppointmentStompClient!.connected) {
       _branchAppointmentStompClient?.deactivate();
-      debugPrint('Đã ngắt kết nối WebSocket (Branch Appointments).');
+      debugPrint('WebSocket disconnected (Branch Appointments).');
     }
   }
 }

@@ -12,24 +12,24 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Lắng nghe Token từ bộ nhớ điện thoại do Firebase Auth quản lý
+    // Listen to the token in device storage managed by Firebase Auth
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
 
-        // 1. Nếu đang tải Token từ thiết bị lên
+        // 1. While loading the token from the device
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator(color: Color(0xFF00796B))),
+            body: Center(child: CircularProgressIndicator(color: Color(0xFFF97316))),
           );
         }
 
-        // 2. NẾU TÌM THẤY PHIÊN ĐĂNG NHẬP (Auto-login)
+        // 2. IF A SESSION IS FOUND (auto-login)
         if (snapshot.hasData && snapshot.data != null) {
           return Consumer<AuthProvider>(
             builder: (context, authProvider, child) {
 
-              // Đang chờ Spring Boot xử lý và trả về dữ liệu Role
+              // Waiting for Spring Boot to process and return the role data
               if (authProvider.mysqlUser == null) {
                 return const Scaffold(
                   body: Center(
@@ -38,27 +38,27 @@ class AuthWrapper extends StatelessWidget {
                       children: [
                         CircularProgressIndicator(color: Colors.orange),
                         SizedBox(height: 16),
-                        Text("Đang đồng bộ dữ liệu hệ thống...", style: TextStyle(color: Colors.grey))
+                        Text("Syncing system data...", style: TextStyle(color: Colors.grey))
                       ],
                     ),
                   ),
                 );
               }
 
-              // 3. Đã có Role từ Spring Boot -> THỰC HIỆN ĐỊNH TUYẾN
+              // 3. Role received from Spring Boot -> ROUTE THE USER
               final roleName = authProvider.mysqlUser?['role'];
 
               if (roleName == 'BRANCH') {
-                return const BranchMobileDashboard(); // Vào trang Quản lý Chi nhánh
+                return const BranchMobileDashboard(); // Go to the Branch Management screen
               }
 
-              // Mặc định khách hàng thông thường
+              // Default: regular customer
               return const MainScreen();
             },
           );
         }
 
-        // 4. Nếu chưa đăng nhập hoặc đã bị đăng xuất
+        // 4. If not signed in or signed out
         return const LoginScreen();
       },
     );

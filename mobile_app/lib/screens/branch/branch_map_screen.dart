@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../models/branch.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,7 +24,7 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
   double? _distanceToSelected;
 
   bool _isLoading = true;
-  String _statusMsg = "Đang tìm vị trí của bạn...";
+  String _statusMsg = "Finding your location...";
 
   @override
   void initState() {
@@ -32,24 +34,24 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
 
   Future<void> _initMapData() async {
     try {
-      // 1. Thử lấy vị trí người dùng (An toàn)
+      // 1. Try to get the user's location (safely)
       Position? position = await _determinePosition();
 
       if (position != null) {
         _userLocation = LatLng(position.latitude, position.longitude);
       } else {
-        // NẾU GPS LỖI HOẶC TỪ CHỐI: Lấy trung tâm TP.HCM (Chợ Bến Thành) làm mặc định
+        // IF GPS FAILS OR IS DENIED: default to central HCMC (Ben Thanh Market)
         _userLocation = const LatLng(10.7725, 106.6981);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Không thể lấy GPS. Đang hiển thị bản đồ mặc định.'))
+              const SnackBar(content: Text('Could not get GPS. Showing the default map.'))
           );
         }
       }
 
-      setState(() => _statusMsg = "Đang tải các chi nhánh...");
+      setState(() => _statusMsg = "Loading branches...");
 
-      // 2. Gọi API lấy danh sách chi nhánh
+      // 2. Call the API to get the branch list
       final response = await ApiClient.get('/branches');
       final data = ApiClient.parseResponse(response);
 
@@ -57,11 +59,11 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
         _branches = data.map((e) => Branch.fromJson(e)).where((b) => b.latitude != null && b.longitude != null).toList();
       }
 
-      // 3. Tìm chi nhánh gần nhất làm mặc định
+      // 3. Pick the nearest branch as default
       _findNearestBranch();
 
     } catch (e) {
-      setState(() => _statusMsg = "Đã xảy ra lỗi: $e");
+      setState(() => _statusMsg = "An error occurred: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -100,51 +102,51 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
     });
   }
 
-  // ── LOGIC MỞ GOOGLE MAPS ĐỂ CHỈ ĐƯỜNG ──
+  // ── OPEN GOOGLE MAPS FOR DIRECTIONS ──
   Future<void> _openGoogleMaps(double destLat, double destLng) async {
-    // Đây là Cú pháp Universal URL chính thức của Google Maps
+    // Official Google Maps universal URL syntax
     final String googleUrl = 'https://www.google.com/maps/dir/?api=1&destination=$destLat,$destLng';
     final Uri uri = Uri.parse(googleUrl);
 
     try {
-      // Dùng LaunchMode.externalApplication để ép mở bằng App Google Maps (hoặc Trình duyệt web)
+      // Use LaunchMode.externalApplication to force the Google Maps app (or web browser)
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể mở bản đồ trên thiết bị này.')),
+            const SnackBar(content: Text('Could not open the map on this device.')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: Không thể mở liên kết bản đồ!')),
+          SnackBar(content: Text('Error: could not open the map link!')),
         );
       }
     }
   }
 
-  // ── LOGIC LẤY GPS SIÊU AN TOÀN (CHỐNG TREO APP) ──
+  // ── SUPER-SAFE GPS LOGIC (prevents app freeze) ──
   Future<Position?> _determinePosition() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null; // GPS đang tắt
+    if (!serviceEnabled) return null; // GPS is off
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return null; // Từ chối cấp quyền
+      if (permission == LocationPermission.denied) return null; // Permission denied
     }
 
     if (permission == LocationPermission.deniedForever) return null;
 
     try {
-      // FIX LỖI TREO: Giới hạn thời gian chờ máy ảo phản hồi đúng 5 giây!
+      // Anti-freeze: cap the emulator wait at exactly 5 seconds!
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 5),
       );
     } catch (e) {
-      // Hết 5 giây mà không có phản hồi, thử lấy vị trí cũ nhất còn lưu trong bộ nhớ
+      // After 5s with no response, fall back to the last known position
       return await Geolocator.getLastKnownPosition();
     }
   }
@@ -155,15 +157,22 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: scheme.surface,
-        appBar: AppBar(title: const Text('Bản đồ Chi nhánh')),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(
+          title: const Text('Branch Map'),
+          titleTextStyle: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.ink,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(),
+              CircularProgressIndicator(color: AppColors.primary),
               const SizedBox(height: 16),
-              Text(_statusMsg, style: TextStyle(color: scheme.onSurfaceVariant)),
+              Text(_statusMsg, style: TextStyle(color: AppColors.inkMuted, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -172,7 +181,12 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hệ thống CareBike'),
+        title: const Text('CareBike System'),
+        titleTextStyle: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         centerTitle: true,
       ),
       body: Stack(
@@ -219,110 +233,129 @@ class _BranchMapScreenState extends State<BranchMapScreen> {
 
           Positioned(
             right: 16,
-            bottom: _selectedBranch != null ? 180 : 20,
+            bottom: _selectedBranch != null ? 200 : 20,
             child: FloatingActionButton(
-              backgroundColor: scheme.surface,
+              backgroundColor: AppColors.surface,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               onPressed: () {
                 _mapController.move(_userLocation!, 15.0);
               },
-              child: Icon(Icons.my_location, color: scheme.primary),
+              child: Icon(Icons.my_location_rounded, color: AppColors.primary),
             ),
           ),
 
           if (_selectedBranch != null)
             Positioned(
               left: 16, right: 16, bottom: 20,
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _selectedBranch!.name,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                            ),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.edge),
+                  boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedBranch!.name,
+                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
-                            child: Text(
-                              _distanceToSelected != null
-                                  ? '${(_distanceToSelected! / 1000).toStringAsFixed(1)} km'
-                                  : '',
-                              style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-                            ),
-                          )
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Expanded(child: Text(_selectedBranch!.address, style: const TextStyle(color: Colors.black87))),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.phone_outlined, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(_selectedBranch!.phone, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                      // ── 2 NÚT BẤM CHUYÊN NGHIỆP ──
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(20)),
+                          child: Text(
+                            _distanceToSelected != null
+                                ? '${(_distanceToSelected! / 1000).toStringAsFixed(1)} km'
+                                : '',
+                            style: TextStyle(color: AppColors.primaryDeep, fontWeight: FontWeight.w700, fontSize: 12.5),
+                          ),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 17, color: AppColors.inkMuted),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(_selectedBranch!.address, style: TextStyle(color: AppColors.ink, height: 1.3))),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_outlined, size: 17, color: AppColors.inkMuted),
+                        const SizedBox(width: 6),
+                        Text(_selectedBranch!.phone, style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    // ── TWO PROFESSIONAL BUTTONS ──
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                // Tạm thời bấm quay lại trang chủ.
-                                // Sau này có thể truyền ID chi nhánh về HomeTab để tự động điền form.
+                                // Temporarily go back to home.
+                                // Later we can pass the branch ID to HomeTab to auto-fill the form.
                                 Navigator.pop(context);
                               },
-                              icon: const Icon(Icons.calendar_month, size: 18),
-                              label: const Text('Đặt lịch'),
+                              icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                              label: const Text('Book'),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                foregroundColor: AppColors.primaryDeep,
+                                side: BorderSide(color: AppColors.primary, width: 1.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                textStyle: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              gradient: AppStyles.brandGradient,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [BoxShadow(color: AppColors.primaryHover.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 7))],
+                            ),
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                // GỌI HÀM MỞ GOOGLE MAPS TẠI ĐÂY
+                                // CALL THE OPEN-GOOGLE-MAPS FUNCTION HERE
                                 _openGoogleMaps(
                                     _selectedBranch!.latitude!,
                                     _selectedBranch!.longitude!
                                 );
                               },
-                              icon: const Icon(Icons.directions, size: 18),
-                              label: const Text('Chỉ đường'),
+                              icon: const Icon(Icons.directions_rounded, size: 18),
+                              label: const Text('Directions'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: scheme.primary,
-                                foregroundColor: scheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                textStyle: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
-                        ],
-                      )
-                    ],
-                  ),
+                        ),
+                      ],
+                    )
+                  ],
                 ),
               ),
             )

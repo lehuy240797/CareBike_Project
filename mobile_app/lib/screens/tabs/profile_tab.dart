@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../models/loyalty.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_text_field.dart';
@@ -65,7 +67,7 @@ class _ProfileTabState extends State<ProfileTab> {
     final auth = context.read<AuthProvider>();
 
     final userId = auth.mysqlUser?['userId']?.toString() ?? '0';
-    final name = auth.mysqlUser?['fullName']?.toString() ?? 'Khách hàng';
+    final name = auth.mysqlUser?['fullName']?.toString() ?? 'Customer';
     final email = auth.firebaseUser?.email?.toString() ?? '';
 
     final qrData = jsonEncode({
@@ -83,10 +85,10 @@ class _ProfileTabState extends State<ProfileTab> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Mã Định Danh CareBike',
+            const Text('CareBike Identity Code',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('Đưa mã này cho nhân viên chi nhánh để tạo đơn bảo dưỡng nhanh chóng.',
+            const Text('Show this code to branch staff to create a maintenance order quickly.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: Colors.grey)),
             const SizedBox(height: 24),
@@ -110,7 +112,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   backgroundColor: Colors.white,
                   errorStateBuilder: (cxt, err) {
                     return const Center(
-                      child: Text('Đang tải mã...', textAlign: TextAlign.center, style: TextStyle(color: Colors.red)),
+                      child: Text('Loading code...', textAlign: TextAlign.center, style: TextStyle(color: Colors.red)),
                     );
                   },
                 ),
@@ -126,10 +128,22 @@ class _ProfileTabState extends State<ProfileTab> {
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Đóng'),
+              child: const Text('Close'),
             ),
           )
         ],
+      ),
+    );
+  }
+
+  void _comingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature is coming soon.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
       ),
     );
   }
@@ -138,14 +152,14 @@ class _ProfileTabState extends State<ProfileTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Đăng xuất'),
-        content: const Text('Bạn có chắc muốn đăng xuất khỏi CareBike?'),
+        title: const Text('Log out'),
+        content: const Text('Are you sure you want to log out of CareBike?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Đăng xuất'),
+            child: const Text('Log out'),
           ),
         ],
       ),
@@ -160,15 +174,16 @@ class _ProfileTabState extends State<ProfileTab> {
     final scheme = Theme.of(context).colorScheme;
     final auth   = context.watch<AuthProvider>();
 
-    final name = auth.mysqlUser?['fullName'] ?? 'Khách hàng';
+    final name = auth.mysqlUser?['fullName'] ?? 'Customer';
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Tài khoản của tôi'),
+        title: const Text('My Account'),
         centerTitle: true,
-        backgroundColor: scheme.surface,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       body: RefreshIndicator(
         onRefresh: _loadLoyalty,
@@ -182,32 +197,49 @@ class _ProfileTabState extends State<ProfileTab> {
 
               _ActionTile(
                 icon: Icons.qr_code_2_rounded,
-                label: 'QR Code của tôi',
-                color: Colors.teal,
+                label: 'My QR Code',
+                color: AppColors.primary,
                 onTap: _showMyQRCode,
               ),
               const SizedBox(height: 8),
 
               _ActionTile(
                 icon: Icons.manage_accounts_outlined,
-                label: 'Cập nhật thông tin',
+                label: 'Update info',
                 color: Colors.blue.shade700,
                 onTap: _openUpdateInfo,
               ),
               const SizedBox(height: 8),
 
               _ActionTile(
-                icon: Icons.lock_reset_outlined, label: 'Đổi mật khẩu', color: scheme.primary,
+                icon: Icons.lock_reset_outlined, label: 'Change password', color: scheme.primary,
                 onTap: _openChangePassword,
               ),
               const SizedBox(height: 8),
+
               _ActionTile(
-                icon: Icons.logout_rounded, label: 'Đăng xuất', color: scheme.error,
+                icon: Icons.local_activity_rounded,
+                label: 'Offers & Vouchers',
+                color: AppColors.primary,
+                onTap: () => _comingSoon('Offers & Vouchers'),
+              ),
+              const SizedBox(height: 8),
+
+              _ActionTile(
+                icon: Icons.headset_mic_rounded,
+                label: 'Help Center',
+                color: Colors.teal.shade700,
+                onTap: () => _comingSoon('Help Center'),
+              ),
+              const SizedBox(height: 8),
+
+              _ActionTile(
+                icon: Icons.logout_rounded, label: 'Log out', color: scheme.error,
                 onTap: _logout,
               ),
               const SizedBox(height: 40),
 
-              Text('CareBike v1.0.0  •  Chăm sóc xe máy thông minh', style: TextStyle(color: scheme.outlineVariant, fontSize: 11)),
+              Text('CareBike v1.0.0  •  Smart motorbike care', style: TextStyle(color: scheme.outlineVariant, fontSize: 11)),
             ],
           ),
         ),
@@ -260,7 +292,7 @@ class _LoyaltyCard extends StatelessWidget {
                 children: [
                   Text(userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text('Chưa có dữ liệu thành viên.', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+                  Text('No membership data yet.', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
                 ],
               ),
             ),
@@ -270,16 +302,17 @@ class _LoyaltyCard extends StatelessWidget {
     }
 
     final color = _tierColor(loyalty!.memberTier, scheme);
+    final tierName = const {'SILVER': 'Silver', 'GOLD': 'Gold', 'PLATINUM': 'Platinum'}[loyalty!.memberTier] ?? 'Standard';
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.8), color],
+          colors: [color.withValues(alpha: 0.82), color, Color.lerp(color, Colors.black, 0.22)!],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 34, offset: const Offset(0, 14))],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -291,32 +324,33 @@ class _LoyaltyCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 4),
+                      Text(userName, style: GoogleFonts.poppins(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                      const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(Icons.stars_rounded, color: Colors.white70, size: 18),
-                          const SizedBox(width: 4),
-                          Text('Hạng ${loyalty!.tierLabel}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          Icon(Icons.workspace_premium_rounded, color: Colors.white.withValues(alpha: 0.9), size: 18),
+                          const SizedBox(width: 5),
+                          Text('$tierName member', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 48, height: 48,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.motorcycle_rounded, color: Colors.white, size: 28),
+                  child: const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 27),
                 ),
               ]),
           const SizedBox(height: 20),
           Row(children: [
-            _StatBox(label: 'Điểm tích lũy', value: '${loyalty!.accumulatedPoints}'),
+            _StatBox(label: 'Loyalty points', value: '${loyalty!.accumulatedPoints}'),
             const SizedBox(width: 16),
-            _StatBox(label: 'Tổng chi tiêu', value: loyalty!.formattedSpent),
+            _StatBox(label: 'Total spent', value: loyalty!.formattedSpent),
           ]),
           const SizedBox(height: 8),
           _TierProgress(loyalty: loyalty!),
@@ -361,20 +395,20 @@ class _TierProgress extends StatelessWidget {
     final spent = loyalty.totalSpent;
     if (spent < 5000000) {
       progress = spent / 5000000;
-      nextTier = '🥈 Bạc';
+      nextTier = '🥈 Silver';
       target = 5000000;
     } else if (spent < 15000000) {
       progress = (spent - 5000000) / 10000000;
-      nextTier = '🥇 Vàng';
+      nextTier = '🥇 Gold';
       target = 15000000;
     } else if (spent < 30000000) {
       progress = (spent - 15000000) / 15000000;
-      nextTier = '💎 Bạch kim';
+      nextTier = '💎 Platinum';
       target = 30000000;
     } else {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: const Text('✨ Đã đạt hạng cao nhất!',
+        child: const Text('✨ You have reached the top tier!',
             style: TextStyle(color: Colors.white70, fontSize: 12)),
       );
     }
@@ -382,7 +416,7 @@ class _TierProgress extends StatelessWidget {
     final remaining = (target - spent).clamp(0, target);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 8),
-      Text('Còn ${remaining.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')} ₫ để đạt hạng $nextTier',
+      Text('${remaining.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')} VND left to reach $nextTier',
           style: const TextStyle(color: Colors.white70, fontSize: 11)),
       const SizedBox(height: 4),
       ClipRRect(
@@ -409,14 +443,16 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return ListTile(
       onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      tileColor: scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppStyles.radiusMd),
+        side: BorderSide(color: AppColors.edge),
+      ),
+      tileColor: AppColors.surface,
       leading: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+        width: 38, height: 38,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
@@ -452,13 +488,13 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
     _phoneCtrl = TextEditingController(text: widget.mysqlUser?['phone'] ?? '');
     _dobCtrl = TextEditingController();
 
-    // Load giới tính
+    // Load gender
     final String? existingGender = widget.mysqlUser?['gender'];
     if (existingGender == 'Nam' || existingGender == 'Nữ' || existingGender == 'Khác') {
       _selectedGender = existingGender;
     }
 
-    // Load ngày sinh
+    // Load date of birth
     final String? existingDob = widget.mysqlUser?['dob'];
     if (existingDob != null && existingDob.isNotEmpty) {
       try {
@@ -477,13 +513,13 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
     super.dispose();
   }
 
-// Hàm mở Lịch
+// Open the calendar
   Future<void> _selectDate(BuildContext context) async {
     final DateTime today = DateTime.now();
-    // Tính toán mốc ngày sinh tối đa (Hôm nay lùi về đúng 18 năm trước)
+    // Max date of birth (today minus exactly 18 years)
     final DateTime maxDate = DateTime(today.year - 18, today.month, today.day);
 
-    // Nếu ngày sinh cũ hợp lệ thì dùng, nếu không thì tự nhảy về maxDate
+    // Use the existing DOB if valid, otherwise jump to maxDate
     final DateTime initial = (_selectedDob != null && !_selectedDob!.isAfter(maxDate))
         ? _selectedDob!
         : maxDate;
@@ -493,9 +529,9 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
       initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: maxDate,
-      helpText: 'Chọn ngày sinh (Yêu cầu trên 18 tuổi)',
-      cancelText: 'Hủy',
-      confirmText: 'Xong',
+      helpText: 'Pick your date of birth (must be 18+)',
+      cancelText: 'Cancel',
+      confirmText: 'Done',
     );
 
     if (picked != null && picked != _selectedDob) {
@@ -513,7 +549,7 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
 
     try {
       final userId = widget.mysqlUser?['userId'];
-      if (userId == null) throw Exception('Không tìm thấy ID người dùng.');
+      if (userId == null) throw Exception('User ID not found.');
 
       String? dobIsoString;
       if (_selectedDob != null) {
@@ -524,18 +560,18 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
         'fullName': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'dob': dobIsoString,
-        'gender': _selectedGender, // Thêm Giới tính
+        'gender': _selectedGender, // Include gender
       });
 
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cập nhật thông tin thành công! Vui lòng đăng nhập lại để làm mới.'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Info updated successfully! Please sign in again to refresh.'), backgroundColor: Colors.green),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -556,33 +592,33 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
           children: [
             Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: scheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
-            Text('Cập nhật thông tin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+            Text('Update info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
             const SizedBox(height: 20),
 
             AppTextField(
-              label: 'Họ và tên', controller: _nameCtrl,
-              validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập họ và tên.' : null,
+              label: 'Full name', controller: _nameCtrl,
+              validator: (v) => (v == null || v.isEmpty) ? 'Please enter your full name.' : null,
             ),
             const SizedBox(height: 14),
 
-            // VALIDATE ĐỊNH DẠNG SỐ ĐIỆN THOẠI
+            // VALIDATE PHONE NUMBER FORMAT
             AppTextField(
-              label: 'Số điện thoại', controller: _phoneCtrl, keyboardType: TextInputType.phone,
+              label: 'Phone number', controller: _phoneCtrl, keyboardType: TextInputType.phone,
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Vui lòng nhập số điện thoại.';
+                if (v == null || v.isEmpty) return 'Please enter your phone number.';
                 if (!RegExp(r'^[0-9]{10,}$').hasMatch(v)) {
-                  return 'Số điện thoại phải là số và tối thiểu 10 ký tự.';
+                  return 'Phone must be digits and at least 10 characters.';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 14),
 
-            // COMBOBOX GIỚI TÍNH
+            // GENDER DROPDOWN
             DropdownButtonFormField<String>(
               value: _selectedGender,
               decoration: InputDecoration(
-                labelText: 'Giới tính',
+                labelText: 'Gender',
                 filled: true,
                 fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outline)),
@@ -590,9 +626,9 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.primary, width: 2)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
-              items: ['Nam', 'Nữ', 'Khác'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+              items: const {'Nam': 'Male', 'Nữ': 'Female', 'Khác': 'Other'}.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
               onChanged: (v) => setState(() => _selectedGender = v),
-              validator: (v) => v == null ? 'Vui lòng chọn giới tính.' : null,
+              validator: (v) => v == null ? 'Please select your gender.' : null,
             ),
             const SizedBox(height: 14),
 
@@ -600,16 +636,16 @@ class _UpdateInfoSheetState extends State<_UpdateInfoSheet> {
               onTap: () => _selectDate(context),
               child: AbsorbPointer(
                 child: AppTextField(
-                  label: 'Ngày sinh (Yêu cầu đủ 18 tuổi)',
+                  label: 'Date of birth (18+)',
                   controller: _dobCtrl,
                   suffixIcon: const Icon(Icons.calendar_month_rounded, color: Colors.grey),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng chọn ngày sinh.' : null,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Please pick your date of birth.' : null,
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
-            LoadingButton(label: 'Lưu thay đổi', isLoading: _isLoading, onPressed: _submit),
+            LoadingButton(label: 'Save changes', isLoading: _isLoading, onPressed: _submit),
           ],
         ),
       ),
@@ -655,11 +691,11 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
           children: [
             Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: scheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
-            Text('Đổi mật khẩu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
+            Text('Change password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
             const SizedBox(height: 20),
             AppTextField(
-              label: 'Mật khẩu hiện tại', controller: _oldCtrl, obscureText: _obscureOld,
-              validator: (v) => (v == null || v.isEmpty) ? 'Nhập mật khẩu hiện tại.' : null,
+              label: 'Current password', controller: _oldCtrl, obscureText: _obscureOld,
+              validator: (v) => (v == null || v.isEmpty) ? 'Enter your current password.' : null,
               suffixIcon: IconButton(
                 icon: Icon(_obscureOld ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                 onPressed: () => setState(() => _obscureOld = !_obscureOld),
@@ -667,9 +703,9 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
             ),
             const SizedBox(height: 14),
             AppTextField(
-              label: 'Mật khẩu mới', controller: _newCtrl, obscureText: _obscureNew,
+              label: 'New password', controller: _newCtrl, obscureText: _obscureNew,
               validator: (v) {
-                if (v == null || v.length < 6) return 'Mật khẩu mới tối thiểu 6 ký tự.';
+                if (v == null || v.length < 6) return 'New password must be at least 6 characters.';
                 return null;
               },
               suffixIcon: IconButton(
@@ -678,7 +714,7 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
               ),
             ),
             const SizedBox(height: 20),
-            LoadingButton(label: 'Xác nhận đổi mật khẩu', isLoading: false, onPressed: _submit),
+            LoadingButton(label: 'Confirm password change', isLoading: false, onPressed: _submit),
           ],
         ),
       ),

@@ -41,7 +41,7 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
 
   return (
     <div
-      className="modal-overlay"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-[4px] animate-fade-in [background:rgba(15,23,42,0.55)]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -49,25 +49,26 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
     >
       <div
         ref={dialogRef}
-        className={`modal-content ${contentClass}`}
+        className={`relative max-h-[90vh] w-full max-w-[500px] overflow-y-auto rounded-[18px] border border-edge bg-white shadow-float animate-scale-in ${contentClass}`}
       >
+        {/* Top gradient accent */}
+        <div className="absolute inset-x-0 top-0 z-[1] h-1 bg-gradient-to-r from-primary-bright via-primary to-primary-hover" />
+
         {/* Header */}
-        <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
+        <div className="flex items-center justify-between gap-4 border-b border-edge px-6 pb-4 pt-5">
+          <h2 className="m-0 text-[1.0625rem] font-bold tracking-tight text-ink">{title}</h2>
           <button
             type="button"
-            className="modal-close-btn"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border-none bg-transparent p-0 text-ink-muted transition-all duration-200 ease-spring hover:rotate-90 hover:bg-primary-light hover:text-primary"
             onClick={onClose}
-            aria-label="Đóng"
+            aria-label="Close"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="modal-body">
-          {children}
-        </div>
+        <div className="px-6 py-5">{children}</div>
       </div>
     </div>
   );

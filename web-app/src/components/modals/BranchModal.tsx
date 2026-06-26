@@ -9,6 +9,7 @@ import wardDataRaw from '../../data/ward.json';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { btnOutline, btnPrimary, inputBase, selectBase } from '../../ui/styles';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -79,7 +80,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ mode, branch, onClose, onSucc
       const list = await apiGetAvailableManagers(currentBranchId);
       setAvailableManagers(Array.isArray(list) ? list : []);
     } catch {
-      setManagersError('Không thể tải danh sách quản lý.');
+      setManagersError('Could not load the manager list.');
     } finally {
       setManagersLoading(false);
     }
@@ -119,7 +120,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ mode, branch, onClose, onSucc
     }
 
     if (!fullAddress) {
-      setError('Vui lòng nhập địa chỉ để tìm kiếm.');
+      setError('Please enter an address to search.');
       return;
     }
 
@@ -132,10 +133,10 @@ const BranchModal: React.FC<BranchModalProps> = ({ mode, branch, onClose, onSucc
         setLat(parseFloat(data[0].lat));
         setLng(parseFloat(data[0].lon));
       } else {
-        setError('Không tìm thấy địa điểm. Vui lòng tự kéo thả kim đỏ.');
+        setError('Location not found. Please drag the red pin manually.');
       }
     } catch (err) {
-      setError('Lỗi kết nối bản đồ.');
+      setError('Map connection error.');
     } finally {
       setIsSearchingMap(false);
     }
@@ -152,23 +153,23 @@ const BranchModal: React.FC<BranchModalProps> = ({ mode, branch, onClose, onSucc
     },
   }), []);
 
-  // ── HÀM LƯU DỮ LIỆU
+  // ── SAVE DATA FUNCTION
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) return setError('Vui lòng nhập tên chi nhánh.');
-    if (!phone.match(/^(0[3|5|7|8|9])+([0-9]{8})\b/)) return setError('Số điện thoại không hợp lệ.');
+    if (!name.trim()) return setError('Please enter the branch name.');
+    if (!phone.match(/^(0[3|5|7|8|9])+([0-9]{8})\b/)) return setError('Invalid phone number.');
 
     let finalAddress = street.trim();
     if (mode === 'create' || (selectedProvince && selectedWard)) {
       if (!selectedProvince || !selectedWard || !street.trim()) {
-        return setError('Vui lòng chọn đầy đủ Tỉnh, Phường/Xã và Số nhà.');
+        return setError('Please select Province, Ward and Street.');
       }
       finalAddress = `${street.trim()}, ${selectedWard.name_with_type}, ${selectedProvince.name_with_type}`;
     }
 
-    // ĐÓNG GÓI PAYLOAD KẾT HỢP
+    // BUILD THE COMBINED PAYLOAD
     const payload = {
       name: name.trim(),
       phone: phone.trim(),
@@ -189,192 +190,147 @@ const BranchModal: React.FC<BranchModalProps> = ({ mode, branch, onClose, onSucc
       }
       onSuccess(savedData);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? err.message ?? 'Không thể lưu chi nhánh. Vui lòng thử lại.');
+      setError(err?.response?.data?.message ?? err.message ?? 'Could not save the branch. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="modal-overlay" style={styles.overlay}>
-      <div className="modal-container" style={styles.modal}>
+  const sectionTitle =
+    'mt-2.5 flex items-center gap-2 border-b-2 border-edge pb-2 text-[1.1rem] font-bold text-ink [&_svg]:text-primary';
+  const fieldLabel = 'mb-1.5 text-sm font-semibold text-ink';
 
-        <div style={styles.header}>
-          <h2 style={styles.title}>{mode === 'create' ? 'Thêm Chi Nhánh Mới' : 'Cập Nhật Chi Nhánh'}</h2>
-          <button type="button" onClick={onClose} style={styles.closeBtn}><X size={20} /></button>
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(15,23,42,0.55)] p-4 backdrop-blur-[4px] animate-fade-in">
+      <div className="relative flex max-h-[90vh] w-full max-w-[750px] flex-col overflow-hidden rounded-[18px] bg-white shadow-float animate-scale-in">
+        {/* Top gradient accent */}
+        <div className="absolute inset-x-0 top-0 z-[1] h-1 bg-gradient-to-r from-primary-bright via-primary to-primary-hover" />
+
+        <div className="flex shrink-0 items-center justify-between border-b border-edge px-6 py-5">
+          <h2 className="m-0 font-display text-xl font-bold text-ink">{mode === 'create' ? 'Add New Branch' : 'Update Branch'}</h2>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border-none bg-transparent text-ink-muted transition-all duration-200 ease-spring hover:rotate-90 hover:bg-primary-light hover:text-primary"><X size={20} /></button>
         </div>
 
-        <div style={styles.body}>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
           {error && (
-            <div style={styles.errorBox}>
+            <div className="flex items-center gap-2 rounded-[10px] border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-600">
               <AlertCircle size={18} />
               <span>{error}</span>
             </div>
           )}
 
-          <div style={styles.row}>
-            <div style={styles.col}>
-              <label style={styles.label}>Tên chi nhánh <span style={styles.req}>*</span></label>
-              <input value={name} onChange={e => setName(e.target.value)} style={styles.input} disabled={isLoading} placeholder="VD: Chi nhánh Trung Tâm" />
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Branch name <span className="text-red-600">*</span></label>
+              <input value={name} onChange={e => setName(e.target.value)} className={inputBase} disabled={isLoading} placeholder="e.g. Central Branch" />
             </div>
-            <div style={styles.col}>
-              <label style={styles.label}>Số điện thoại <span style={styles.req}>*</span></label>
-              <input value={phone} onChange={e => setPhone(e.target.value)} style={styles.input} disabled={isLoading} placeholder="09xxxxxxxx" maxLength={10} />
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Phone number <span className="text-red-600">*</span></label>
+              <input value={phone} onChange={e => setPhone(e.target.value)} className={inputBase} disabled={isLoading} placeholder="09xxxxxxxx" maxLength={10} />
             </div>
           </div>
 
-          {/* Ô CHỌN QUẢN LÝ (UI MỚI KẾT HỢP LOGIC CŨ) */}
-          <div style={styles.sectionTitle}>
-            <UserCircle size={18} /> Phân công Quản lý
+          {/* MANAGER SELECT (new UI combined with existing logic) */}
+          <div className={sectionTitle}>
+            <UserCircle size={18} /> Assign Manager
           </div>
-          <div style={styles.row}>
-            <div style={styles.col}>
-              <label style={styles.label}>Tài khoản Quản lý chi nhánh</label>
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Branch manager account</label>
               {managersLoading ? (
-                <div style={{ fontSize: '0.9rem', color: '#64748b', padding: '10px 0' }}>Đang tải danh sách quản lý...</div>
+                <div className="py-2.5 text-[0.9rem] text-ink-muted">Loading manager list...</div>
               ) : managersError ? (
-                <div style={{ fontSize: '0.9rem', color: '#ef4444', padding: '10px 0' }}>{managersError}</div>
+                <div className="py-2.5 text-[0.9rem] text-red-600">{managersError}</div>
               ) : (
                 <select
                   value={selectedManagerId}
                   onChange={e => setSelectedManagerId(e.target.value)}
-                  style={styles.input}
+                  className={selectBase}
                   disabled={isLoading}
                 >
-                  <option value="">-- Chưa phân công --</option>
+                  <option value="">-- Unassigned --</option>
                   {availableManagers.map((mgr) => (
                     <option key={mgr.id} value={String(mgr.id)}>
                       {mgr.fullName ? `${mgr.fullName} - ${mgr.email}` : mgr.email}
-                      {branch?.manager?.id === mgr.id ? ' ✓ Hiện tại' : ''}
+                      {branch?.manager?.id === mgr.id ? ' ✓ Current' : ''}
                     </option>
                   ))}
                 </select>
               )}
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                Chỉ hiển thị các tài khoản chưa được phân công. Có thể bỏ qua và phân công sau.
+              <p className="mt-1 text-[0.8rem] text-ink-muted">
+                Only unassigned accounts are shown. You can skip and assign later.
               </p>
             </div>
           </div>
 
-          <div style={styles.sectionTitle}>
-            <MapPin size={18} /> Định vị Khu vực (Chính quyền 2 cấp)
+          <div className={sectionTitle}>
+            <MapPin size={18} /> Locate Area (2-tier administrative)
           </div>
 
-          <div style={styles.row}>
-            <div style={styles.col}>
-              <label style={styles.label}>Tỉnh / Thành phố <span style={styles.req}>*</span></label>
-              <select onChange={handleProvinceChange} style={styles.input} defaultValue="" disabled={isLoading}>
-                <option value="" disabled>Chọn Tỉnh/Thành</option>
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Province / City <span className="text-red-600">*</span></label>
+              <select onChange={handleProvinceChange} className={selectBase} defaultValue="" disabled={isLoading}>
+                <option value="" disabled>Select Province/City</option>
                 {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
               </select>
             </div>
-            <div style={styles.col}>
-              <label style={styles.label}>Phường / Xã / Đặc khu <span style={styles.req}>*</span></label>
-              <select onChange={handleWardChange} style={styles.input} value={selectedWard?.code || ''} disabled={!selectedProvince || isLoading}>
-                <option value="" disabled>Chọn Phường/Xã/Đặc khu</option>
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Ward / Commune <span className="text-red-600">*</span></label>
+              <select onChange={handleWardChange} className={selectBase} value={selectedWard?.code || ''} disabled={!selectedProvince || isLoading}>
+                <option value="" disabled>Select Ward/Commune</option>
                 {wards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
               </select>
             </div>
           </div>
 
-          <label style={styles.label}>Số nhà, Tên đường <span style={styles.req}>*</span></label>
-          <div style={styles.searchRow}>
+          <label className={fieldLabel}>Street address <span className="text-red-600">*</span></label>
+          <div className="flex items-stretch gap-2.5">
             <input
               value={street}
               onChange={e => setStreet(e.target.value)}
-              style={{ ...styles.input, flex: 1, marginBottom: 0 }}
-              placeholder="VD: 123 Lê Lợi..."
+              className={`${inputBase} flex-1`}
+              placeholder="e.g. 123 Main St..."
               disabled={isLoading}
             />
-            <button type="button" onClick={searchLocation} disabled={isSearchingMap || isLoading} style={styles.searchBtn}>
-              <Search size={16} /> {isSearchingMap ? 'Đang tìm...' : 'Tìm Tọa độ'}
+            <button type="button" onClick={searchLocation} disabled={isSearchingMap || isLoading} className="flex items-center gap-1.5 rounded-[10px] border border-primary-muted bg-primary-light px-4 font-semibold text-primary transition-colors hover:bg-primary-muted disabled:opacity-60">
+              <Search size={16} /> {isSearchingMap ? 'Searching...' : 'Find Coordinates'}
             </button>
           </div>
-          <p style={styles.hint}>Nhập đầy đủ địa chỉ và bấm "Tìm Tọa độ". Bạn có thể <b>Kéo thả biểu tượng kim đỏ</b> trên bản đồ bên dưới để chọn chính xác vị trí.</p>
+          <p className="m-0 text-[0.8rem] text-ink-muted">Enter the full address and click "Find Coordinates". You can <b>drag the red pin</b> on the map below to pick the exact location.</p>
 
-          <div style={styles.mapContainer}>
+          <div className="relative h-[300px] min-h-[300px] w-full shrink-0 overflow-hidden rounded-[10px] border border-edge">
             <MapContainer center={[lat, lng]} zoom={16} style={{ height: '100%', width: '100%', zIndex: 0 }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <MapUpdater center={[lat, lng]} />
               <Marker position={[lat, lng]} draggable={!isLoading} eventHandlers={eventHandlers} ref={markerRef} />
             </MapContainer>
-            <div style={styles.coordsOverlay}>
-              Vĩ độ: {lat.toFixed(6)} | Kinh độ: {lng.toFixed(6)}
+            <div className="absolute bottom-2.5 left-2.5 z-[400] rounded-md border border-stone-300 bg-white/90 px-2.5 py-1 text-[0.8rem] font-semibold">
+              Lat: {lat.toFixed(6)} | Lng: {lng.toFixed(6)}
             </div>
           </div>
 
-          <div style={{ ...styles.row, marginTop: 12 }}>
-            <div style={styles.col}>
-              <label style={styles.label}>Trạng thái hoạt động</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...styles.input, width: '50%' }} disabled={isLoading}>
-                <option value="ACTIVE">Đang hoạt động</option>
-                <option value="INACTIVE">Tạm khóa</option>
+          <div className="mt-3 flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-1 flex-col">
+              <label className={fieldLabel}>Operating status</label>
+              <select value={status} onChange={e => setStatus(e.target.value)} className={`${selectBase} w-1/2`} disabled={isLoading}>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Suspended</option>
               </select>
             </div>
           </div>
         </div>
 
-        <div style={styles.footer}>
-          <button type="button" onClick={onClose} style={styles.cancelBtn} disabled={isLoading}>Hủy bỏ</button>
-          <button type="button" onClick={handleSave} style={styles.saveBtn} disabled={isLoading}>
-            <Save size={16} /> {isLoading ? 'Đang lưu...' : 'Lưu Chi Nhánh'}
+        <div className="flex shrink-0 justify-end gap-3 border-t border-edge bg-canvas px-6 py-4">
+          <button type="button" onClick={onClose} className={btnOutline} disabled={isLoading}>Cancel</button>
+          <button type="button" onClick={handleSave} className={btnPrimary} disabled={isLoading}>
+            <Save size={16} /> {isLoading ? 'Saving...' : 'Save Branch'}
           </button>
         </div>
 
       </div>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: '#fff', borderRadius: '12px', width: '100%', maxWidth: '750px', maxHeight: '90vh',
-    display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-  },
-  header: {
-    padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    flexShrink: 0,
-  },
-  title: { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' },
-  body: { padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' },
-  row: { display: 'flex', gap: '16px' },
-  col: { flex: 1, display: 'flex', flexDirection: 'column' },
-  label: { fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '6px' },
-  req: { color: '#ef4444' },
-  input: {
-    padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.95rem',
-    outline: 'none', backgroundColor: '#f8fafc',
-  },
-  sectionTitle: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginTop: '10px', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px' },
-  searchRow: { display: 'flex', gap: '10px', alignItems: 'stretch' },
-  searchBtn: {
-    display: 'flex', alignItems: 'center', gap: '6px', padding: '0 16px', backgroundColor: '#e0f2fe',
-    color: '#0284c7', border: '1px solid #7dd3fc', borderRadius: '8px', cursor: 'pointer', fontWeight: 600,
-  },
-  hint: { margin: 0, fontSize: '0.8rem', color: '#64748b' },
-  mapContainer: {
-    height: '300px',
-    minHeight: '300px',
-    flexShrink: 0,
-    width: '100%',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    position: 'relative',
-    border: '1px solid #cbd5e1'
-  },
-  coordsOverlay: {
-    position: 'absolute', bottom: '10px', left: '10px', zIndex: 400, backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid #ccc',
-  },
-  errorBox: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', backgroundColor: '#fef2f2', color: '#b91c1c', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500 },
-  footer: { padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: '#f8fafc', borderRadius: '0 0 12px 12px', flexShrink: 0 },
-  cancelBtn: { padding: '10px 20px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer' },
-  saveBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: '#0ea5e9', color: '#fff', fontWeight: 600, cursor: 'pointer' },
 };
 
 export default BranchModal;

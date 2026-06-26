@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
   firebase_core: ^4.10.0
   firebase_auth: ^6.5.2
   provider: ^6.1.2
@@ -25,6 +26,9 @@ dependencies:
   geolocator: ^11.0.1
   url_launcher: ^6.3.0
   intl: ^0.20.2
+  image_picker: ^1.1.2
+  google_generative_ai: ^0.4.7
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +37,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/sounds/sos_alarm.wav

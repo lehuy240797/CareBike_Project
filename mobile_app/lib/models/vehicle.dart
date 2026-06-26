@@ -4,7 +4,7 @@ class Vehicle {
   final String vehicleType;
   final String vehicleName;
 
-  // 3 Trường dữ liệu mới
+  // 3 new data fields
   final String licensePlate;
   final int? engineCapacity;
   final int? currentKm;
@@ -42,5 +42,5 @@ class Vehicle {
     'currentKm': currentKm ?? 0,
   };
 
-  String get typeLabel => vehicleType == 'XE_SO' ? 'Xe số' : 'Xe tay ga';
+  String get typeLabel => vehicleType == 'XE_SO' ? 'Manual' : 'Scooter';
 }
