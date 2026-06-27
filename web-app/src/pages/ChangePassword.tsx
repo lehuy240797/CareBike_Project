@@ -44,6 +44,17 @@ const ChangePassword: React.FC = () => {
     const newErrors: Partial<FormState> = {};
 
     if (!form.oldPassword) {
+<<<<<<< HEAD
+      newErrors.oldPassword = 'Please enter your current password.'
+    }
+
+    if (!form.newPassword) {
+      newErrors.newPassword = 'The new password must not be blank.'
+    } else if (form.newPassword.length < 6) {
+      newErrors.newPassword = 'The new password must be at least 6 characters long.';
+    } else if (form.newPassword === form.oldPassword) {
+      newErrors.newPassword = 'The new password must be different from the current password.';
+=======
       newErrors.oldPassword = 'Please enter your current password.';
     }
 
@@ -53,12 +64,17 @@ const ChangePassword: React.FC = () => {
       newErrors.newPassword = 'New password must be at least 6 characters.';
     } else if (form.newPassword === form.oldPassword) {
       newErrors.newPassword = 'New password must differ from the current one.';
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     }
 
     if (!form.confirmNewPassword) {
       newErrors.confirmNewPassword = 'Please confirm the new password.';
     } else if (form.newPassword !== form.confirmNewPassword) {
+<<<<<<< HEAD
+      newErrors.confirmNewPassword = 'The confirmed new password does not match.';
+=======
       newErrors.confirmNewPassword = 'Password confirmation does not match.';
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     }
 
     setErrors(newErrors);
@@ -84,7 +100,11 @@ const ChangePassword: React.FC = () => {
         // Surface backend errors gracefully (e.g. wrong old password)
         setServerError(err.message);
       } else {
+<<<<<<< HEAD
+        setServerError('Password change failed. Please try again.')
+=======
         setServerError('Failed to change password. Please try again.');
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
       }
     } finally {
       setIsSubmitting(false);
@@ -148,6 +168,61 @@ const ChangePassword: React.FC = () => {
   );
 
   return (
+<<<<<<< HEAD
+    <div className="dashboard-inner dashboard-inner--narrow">
+      <div className="page-header">
+        <ShieldCheck size={28} className="page-header-icon" aria-hidden="true" />
+        <div>
+          <h1 className="dashboard-title" style={{ margin: 0 }}>Change password</h1>
+          <p className="page-subtitle">Update your login password</p>
+        </div>
+      </div>
+
+      <div className="dashboard-panel change-password-panel">
+        {/* Success banner */}
+        {success && (
+          <div className="auth-alert auth-alert--success" role="status" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <CheckCircle size={16} aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <span>The password has been updated successfully!</span>
+          </div>
+        )}
+
+        {/* Server error banner */}
+        {serverError && (
+          <div className="auth-alert auth-alert--error" role="alert" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <AlertCircle size={16} aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <span>{serverError}</span>
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {/* Current password */}
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="oldPassword">Current password</label>
+            <div className="auth-input-wrapper">
+              <input
+                id="oldPassword"
+                name="oldPassword"
+                type={showOld ? 'text' : 'password'}
+                className={`auth-input auth-input--with-icon${errors.oldPassword ? ' auth-input--error' : ''}`}
+                placeholder="Nhập mật khẩu hiện tại..."
+                autoComplete="current-password"
+                value={form.oldPassword}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                aria-invalid={!!errors.oldPassword}
+                aria-describedby={errors.oldPassword ? 'oldPassword-error' : undefined}
+              />
+              <button
+                type="button"
+                className="auth-input-icon-btn"
+                onClick={() => setShowOld((v) => !v)}
+                aria-label={showOld ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showOld ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+=======
     <div className="mx-auto max-w-[64rem]">
       {/* Header */}
       <div className="mb-8 animate-fade-up">
@@ -162,6 +237,7 @@ const ChangePassword: React.FC = () => {
           <div className="rounded-3xl border border-edge bg-white p-6 shadow-sm lg:sticky lg:top-6">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_0_20px_rgba(249,115,22,0.35)]">
               <ShieldCheck size={26} aria-hidden="true" />
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
             </div>
             <h3 className="m-0 font-display text-xl font-black text-ink">Account security</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
@@ -198,14 +274,95 @@ const ChangePassword: React.FC = () => {
               </div>
             )}
 
+<<<<<<< HEAD
+          {/* New password row */}
+          <div className="auth-row">
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="newPassword">New password</label>
+              <div className="auth-input-wrapper">
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type={showNew ? 'text' : 'password'}
+                  className={`auth-input auth-input--with-icon${errors.newPassword ? ' auth-input--error' : ''}`}
+                  placeholder="Minimum 6 characters"
+                  autoComplete="new-password"
+                  value={form.newPassword}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.newPassword}
+                  aria-describedby={errors.newPassword ? 'newPassword-error' : undefined}
+                />
+                <button
+                  type="button"
+                  className="auth-input-icon-btn"
+                  onClick={() => setShowNew((v) => !v)}
+                  aria-label={showNew ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+=======
             {/* Server error banner */}
             {serverError && (
               <div className="mb-5 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-normal text-red-600" role="alert">
                 <AlertCircle size={16} aria-hidden="true" className="mt-px shrink-0" />
                 <span>{serverError}</span>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
               </div>
             )}
 
+<<<<<<< HEAD
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="confirmNewPassword">Confirm new password</label>
+              <div className="auth-input-wrapper">
+                <input
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  type={showConfirm ? 'text' : 'password'}
+                  className={`auth-input auth-input--with-icon${errors.confirmNewPassword ? ' auth-input--error' : ''}`}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
+                  value={form.confirmNewPassword}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.confirmNewPassword}
+                  aria-describedby={errors.confirmNewPassword ? 'confirmNewPassword-error' : undefined}
+                />
+                <button
+                  type="button"
+                  className="auth-input-icon-btn"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {errors.confirmNewPassword && (
+                <span id="confirmNewPassword-error" className="auth-field-error" role="alert">{errors.confirmNewPassword}</span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="submit"
+              className="auth-btn"
+              style={{ width: 'auto', minWidth: '12rem' }}
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={17} color="#fff" />
+                  Saving...
+                </>
+              ) : (
+                'Update password'
+              )}
+            </button>
+=======
             <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
               {passwordField('oldPassword', 'oldPassword', 'Current password', 'Enter your current password...', showOld, () => setShowOld((v) => !v), 'current-password')}
 
@@ -230,6 +387,7 @@ const ChangePassword: React.FC = () => {
                 )}
               </button>
             </form>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
           </div>
         </div>
       </div>

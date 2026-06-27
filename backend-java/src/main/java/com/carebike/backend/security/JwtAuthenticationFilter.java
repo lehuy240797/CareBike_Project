@@ -39,11 +39,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 1. Firebase Admin SDK kiểm tra tính hợp lệ của Token
                 FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(jwt);
                 String firebaseUid = decodedToken.getUid();
-                
+
                 // 2. Gắn UID vào request để API Register có thể lấy ra sử dụng
                 request.setAttribute("firebaseUid", firebaseUid);
-                
-                // THÊM DÒNG NÀY: Gắn toàn bộ Token vào request để API Login (Google) có thể lấy Email/Tên tạo tài khoản
+
+                // THÊM DÒNG NÀY: Gắn toàn bộ Token vào request để API Login (Google) có thể lấy
+                // Email/Tên tạo tài khoản
                 request.setAttribute("firebaseToken", decodedToken);
 
                 // ====================================================================
@@ -54,19 +55,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Đã lấy được UID xong. Vì đây là API đăng ký/đăng nhập nên nhường quyền
                     // cho Controller tự xử lý tiếp. Không query DB tìm User để tránh lỗi 403.
                     filterChain.doFilter(request, response);
-                    return; 
+                    return;
                 }
                 // ====================================================================
 
-                // 3. NẾU LÀ CÁC API KHÁC (như xem danh sách, đặt lịch...): 
+                // 3. NẾU LÀ CÁC API KHÁC (như xem danh sách, đặt lịch...):
                 // Tìm khách hàng trong Database MySQL để cấp quyền (Role)
                 Optional<User> userOptional = userRepository.findByFirebaseUid(firebaseUid);
 
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
-                    
+
                     // Cấp quyền truy cập theo Role (CUSTOMER, ADMIN, BRANCH)
-                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().getRoleName());
+                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority(
+                            "ROLE_" + user.getRole().getRoleName());
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             user, null, Collections.singletonList(authority));
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+@import "tailwindcss";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+=======
 @import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@400;600;700;900&family=Poppins:wght@300;400;500;600;700;800&family=Racing+Sans+One&family=Roboto:wght@300;400;500;700&display=swap");
 @import 'tailwindcss';
 
@@ -88,6 +96,7 @@
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-6px); }
   }
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

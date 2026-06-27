@@ -55,6 +55,15 @@ class _HomeTabState extends State<HomeTab> {
   List<Branch> _branches = [];
   bool _branchesLoading = true;
 
+  List<SparePart> _spareParts = [];
+  bool _sparePartsLoading = true;
+
+  List<CategoryModel> _categories = [];
+  bool _categoriesLoading = true;
+  int? _selectedCategoryId;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
   Branch?        _selectedBranch;
   DateTime?      _selectedDate;
   TimeOfDay?     _selectedTime;

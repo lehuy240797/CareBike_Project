@@ -35,7 +35,11 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.username.trim() || !form.password.trim()) {
+<<<<<<< HEAD
+      setError('Please enter both username and password.');
+=======
       setError('Please enter both your username and password.');
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
       return;
     }
     setError('');
@@ -44,16 +48,38 @@ const Login: React.FC = () => {
       await login(form);
       navigate('/', { replace: true });
     } catch (err: any) {
+<<<<<<< HEAD
+      // =========================================================================
+      // XỬ LÝ LỖI: Tiếp nhận lỗi từ AuthContext và phản hồi lên giao diện
+      // =========================================================================
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (err?.message) {
+        setError(err.message);
+      } else {
+        setError('System is busy or connection lost. Please try again later.');
+      }
+=======
       if (err instanceof Error) setError(err.message);
       else if (err?.message) setError(err.message);
       else setError('The system is busy or the connection was lost. Please try again later.');
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
+<<<<<<< HEAD
+    <AuthLayout>
+      <div className="auth-card">
+        <h2 className="auth-card-title">Log in</h2>
+        <p className="auth-card-subtitle">
+          Welcome back — for Administrators &amp; Branches
+        </p>
+=======
     <div className="flex min-h-screen">
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 
       {/* ── Left branding panel ───────────────────────────────────── */}
       <div
@@ -82,6 +108,78 @@ const Login: React.FC = () => {
         <div className="pointer-events-none absolute top-[38%] left-[14%] h-2 w-2 rounded-full bg-white/50" />
         <div className="pointer-events-none absolute top-[22%] right-[18%] h-1.5 w-1.5 rounded-full bg-white/60" />
 
+<<<<<<< HEAD
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {/* Username */}
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="username">
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              className="auth-input"
+              placeholder="Enter email or username..."
+              autoComplete="username"
+              autoFocus
+              value={form.username}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              aria-invalid={!!error}
+              required
+            />
+          </div>
+
+          {/* Password */}
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="password">
+              Password
+            </label>
+            <div className="auth-input-wrapper">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                className="auth-input auth-input--with-icon"
+                placeholder="Enter password..."
+                autoComplete="current-password"
+                value={form.password}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                aria-invalid={!!error}
+                required
+              />
+              <button
+                type="button"
+                className="auth-input-icon-btn"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="auth-btn"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <LoadingSpinner size={17} color="#fff" />
+                <span>Logging in...</span>
+              </>
+            ) : (
+              'Log in'
+            )}
+          </button>
+        </form>
+=======
         <div className="relative z-10 flex h-full flex-col justify-center px-10 py-14">
           {/* Logo */}
           <div className="mb-12">
@@ -230,6 +328,7 @@ const Login: React.FC = () => {
             </div>
           </div>
         </div>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
       </div>
 
     </div>

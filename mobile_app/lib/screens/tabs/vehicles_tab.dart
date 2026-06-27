@@ -87,7 +87,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
           boxShadow: [BoxShadow(color: AppColors.primaryHover.withValues(alpha: 0.45), blurRadius: 18, offset: const Offset(0, 8))],
         ),
         child: FloatingActionButton.extended(
-          onPressed: () => _openForm(), // This button always opens the Add form
+          onPressed: () => _openForm(),
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -276,7 +276,7 @@ class _VehicleFormState extends State<_VehicleForm> {
   bool   _isSaving    = false;
   String? _error;
 
-  static const _brands = ['Honda', 'Yamaha', 'Suzuki', 'SYM', 'Piaggio', 'Khác'];
+  static const _brands = ['Honda', 'Yamaha', 'Suzuki', 'SYM', 'Piaggio', 'Other'];
   static const _types  = [
     {'value': 'XE_SO',     'label': 'Manual'},
     {'value': 'XE_TAY_GA', 'label': 'Scooter'},
@@ -429,10 +429,16 @@ class _VehicleFormState extends State<_VehicleForm> {
 
 class _DropdownField<T> extends StatelessWidget {
   final String label;
-  final T value;
+  final T? value; 
   final List<DropdownMenuItem<T>> items;
   final void Function(T?) onChanged;
-  const _DropdownField({required this.label, required this.value, required this.items, required this.onChanged});
+
+  const _DropdownField({
+    required this.label, 
+    this.value, 
+    required this.items, 
+    required this.onChanged
+  });
 
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<T>(
@@ -445,5 +451,6 @@ class _DropdownField<T> extends StatelessWidget {
     isExpanded: true,
     items: items,
     onChanged: onChanged,
+    validator: (value) => value == null ? 'Vui lòng chọn $label' : null,
   );
 }

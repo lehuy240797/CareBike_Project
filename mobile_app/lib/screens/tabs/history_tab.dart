@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../models/maintenance.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart'; // Get ID directly from Auth
+import '../../widgets/invoice_widget.dart';
 
 class HistoryTab extends StatefulWidget {
   const HistoryTab({super.key});

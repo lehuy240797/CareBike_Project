@@ -13,6 +13,9 @@ public class BranchRequest {
     private BigDecimal latitude;
     private BigDecimal longitude;
 
-    // Dùng để gắn người quản lý
+    public Integer getManagerId() {
+        return managerId;
+    }
+
     private Integer managerId;
 }

@@ -58,7 +58,7 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppColors.canvas,
         appBar: AppBar(
@@ -80,6 +80,7 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
             tabs: [
               Tab(text: 'PENDING'),
               Tab(text: 'IN PROGRESS'),
+              Tab(text: 'COMPLETED'),
             ],
           ),
         ),
@@ -91,8 +92,9 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
             }
             return TabBarView(
               children: [
-                _buildList(_store.pending, isPending: true),
-                _buildList(_store.accepted, isPending: false),
+                _buildList(_store.pending, isPending: true, isCompleted: false),
+                _buildList(_store.accepted, isPending: false, isCompleted: false),
+                _buildList(_store.completed, isPending: false, isCompleted: true),
               ],
             );
           },
@@ -101,8 +103,8 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
     );
   }
 
-  // SHARED LIST BUILDER FOR BOTH TABS
-  Widget _buildList(List<dynamic> list, {required bool isPending}) {
+  // SHARED LIST BUILDER FOR TABS
+  Widget _buildList(List<dynamic> list, {required bool isPending, required bool isCompleted}) {
     if (list.isEmpty) {
       return Center(
         child: Column(
@@ -110,7 +112,7 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
           children: [
             Icon(Icons.check_circle_outline_rounded, size: 76, color: AppColors.edge),
             const SizedBox(height: 16),
-            Text(isPending ? 'No new rescue requests.' : 'No cases in progress yet.',
+            Text(isCompleted ? 'No completed cases yet.' : (isPending ? 'No new rescue requests.' : 'No cases in progress yet.'),
                 style: GoogleFonts.poppins(color: AppColors.inkMuted, fontSize: 15, fontWeight: FontWeight.w600)),
           ],
         ),
@@ -121,16 +123,16 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       itemCount: list.length,
       itemBuilder: (context, index) {
-        return _buildRescueCard(list[index], isPending: isPending);
+        return _buildRescueCard(list[index], isPending: isPending, isCompleted: isCompleted);
       },
     );
   }
 
   // INFO CARD
-  Widget _buildRescueCard(dynamic r, {required bool isPending}) {
+  Widget _buildRescueCard(dynamic r, {required bool isPending, required bool isCompleted}) {
     final customer = r['customer'];
     final vehicle = r['vehicle'];
-    final accent = isPending ? AppColors.danger : const Color(0xFF2563EB);
+    final accent = isCompleted ? AppColors.success : (isPending ? AppColors.danger : const Color(0xFF2563EB));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -182,34 +184,48 @@ class _BranchRescueScreenState extends State<BranchRescueScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Call & map buttons are always visible for staff
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 46,
-                    child: FilledButton.icon(
-                      onPressed: () => _callCustomer(customer['phone']),
-                      icon: const Icon(Icons.phone_rounded, size: 18),
-                      label: const Text('Call'),
-                      style: FilledButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+            // Call & map buttons are always visible for staff (unless completed)
+            if (!isCompleted)
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: FilledButton.icon(
+                        onPressed: () => _callCustomer(customer['phone']),
+                        icon: const Icon(Icons.phone_rounded, size: 18),
+                        label: const Text('Call'),
+                        style: FilledButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SizedBox(
-                    height: 46,
-                    child: FilledButton.icon(
-                      onPressed: () => _openGoogleMaps(r['latitude'], r['longitude']),
-                      icon: const Icon(Icons.map_rounded, size: 18),
-                      label: const Text('Map'),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: FilledButton.icon(
+                        onPressed: () => _openGoogleMaps(r['latitude'], r['longitude']),
+                        icon: const Icon(Icons.map_rounded, size: 18),
+                        label: const Text('Map'),
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            
+            if (isCompleted)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)
                 ),
-              ],
-            ),
+                child: Center(
+                  child: Text('PAID & COMPLETED', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
+                ),
+              ),
 
             // On the Pending tab -> show the Accept button
             if (isPending) ...[

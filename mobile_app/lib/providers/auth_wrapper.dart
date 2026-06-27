@@ -38,7 +38,7 @@ class AuthWrapper extends StatelessWidget {
                       children: [
                         CircularProgressIndicator(color: Colors.orange),
                         SizedBox(height: 16),
-                        Text("Syncing system data...", style: TextStyle(color: Colors.grey))
+                        Text("Synchronizing system data...", style: TextStyle(color: Colors.grey))
                       ],
                     ),
                   ),

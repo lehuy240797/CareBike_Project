@@ -49,7 +49,11 @@ const StaffManagement = () => {
             const branchManagers = data.filter(u => u.role?.roleName === 'BRANCH');
             setStaffs(branchManagers);
         } catch (error) {
+<<<<<<< HEAD
+            console.error("Error loading staff list", error);
+=======
             console.error("Failed to load staff list", error);
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
         } finally {
             setIsLoading(false);
         }
@@ -62,21 +66,36 @@ const StaffManagement = () => {
             await apiToggleUserStatus(id);
             fetchStaffs(); // Refresh the list after lock/unlock
         } catch (error) {
+<<<<<<< HEAD
+            toast.error("Unable to change account status.");
+=======
             toast.error("Could not change this account's status.");
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
         }
     };
 
     const handleDeleteStaff = async (id: number, name: string) => {
+<<<<<<< HEAD
+        const confirmDelete = window.confirm(`Are you sure you want to PERMANENTLY DELETE the account for "${name}"?\nThis action will also delete data from Firebase.`);
+=======
         const confirmDelete = window.confirm(`Are you sure you want to PERMANENTLY DELETE the account of "${name}"?\nThis will also wipe its data on Firebase.`);
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
         if (!confirmDelete) return;
 
         try {
             await apiDeleteUser(id);
+<<<<<<< HEAD
+            toast.success("Account successfully deleted!");
+            fetchStaffs(); // Refresh list after deletion
+        } catch (error: any) {
+            const msg = error?.response?.data?.message ?? "Unable to delete this account.";
+=======
             toast.success("Account deleted successfully!");
             fetchStaffs(); // Reload the list after deleting
         } catch (error: any) {
             // Surface the backend's block message on screen (e.g. still managing a branch)
             const msg = error?.response?.data?.message ?? "Could not delete this account.";
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
             toast.error(msg);
         }
     };
@@ -110,6 +129,72 @@ const StaffManagement = () => {
 
     return (
         <>
+<<<<<<< HEAD
+            <div className="dashboard-inner">
+                <div className="page-header" style={{ marginBottom: '1.75rem' }}>
+                    <UserCog size={28} className="page-header-icon" aria-hidden="true" />
+                    <div style={{ flex: 1 }}>
+                        <h1 className="dashboard-title" style={{ margin: 0 }}>Staff Management</h1>
+                        <p className="page-subtitle">Branch Manager Accounts List</p>
+                    </div>
+                    <button type="button" className="app-btn" onClick={() => setIsModalOpen(true)}>
+                        <Plus size={16} aria-hidden="true" /> Create New Account
+                    </button>
+                </div>
+
+                <div className="table-card">
+                    {isLoading ? (
+                        <div className="table-empty"><p>Loading data...</p></div>
+                    ) : staffs.length === 0 ? (
+                        <div className="table-empty">
+                            <UserCog size={40} style={{ opacity: 0.3 }} />
+                            <p>No manager accounts found.</p>
+                        </div>
+                    ) : (
+                        <div className="table-scroll">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#ID</th>
+                                        <th>Full Name</th>
+                                        <th>Login Email</th>
+                                        <th>Phone</th>
+                                        <th>Status</th>
+                                        <th style={{ textAlign: 'right' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {staffs.map((staff) => (
+                                        <tr key={staff.id}>
+                                            <td className="td-muted">{staff.id}</td>
+                                            <td className="font-medium">{staff.fullName || '—'}</td>
+                                            <td className="td-primary">{staff.email}</td>
+                                            <td>{staff.phone || '—'}</td>
+                                            <td>
+                                                <span className={staff.isActive ? 'badge badge--success' : 'badge badge--danger'}>
+                                                    {staff.isActive ? 'Active' : 'Locked'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="table-actions">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleStatus(staff.id)}
+                                                        className={`icon-btn ${staff.isActive ? 'icon-btn--delete' : 'icon-btn--edit'}`}
+                                                        title={staff.isActive ? "Lock account" : "Unlock account"}
+                                                    >
+                                                        {staff.isActive ? <Lock size={15} /> : <Unlock size={15} />}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteStaff(staff.id, staff.fullName || staff.email)}
+                                                        className="icon-btn icon-btn--delete"
+                                                        title="Delete permanently"
+                                                        style={{ marginLeft: '8px' }}
+                                                    >
+                                                        <Trash2 size={15} color="var(--color-danger, #ef4444)" />
+                                                    </button>
+=======
             <div className="mx-auto max-w-[80rem]">
                 {/* Header */}
                 <div className="mb-8 flex items-start justify-between gap-4 animate-fade-up">
@@ -213,6 +298,7 @@ const StaffManagement = () => {
                                                         <p className="m-0 mt-0.5 text-xs text-ink-muted">Branch Manager</p>
                                                         <p className="m-0 mt-0.5 text-xs text-ink-muted/70">#{staff.id}</p>
                                                     </div>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
                                                 </div>
                                                 <span className={isActive ? badgeSuccess : badgeDanger}>
                                                     {isActive ? 'Active' : 'Locked'}

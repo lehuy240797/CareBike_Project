@@ -12,6 +12,7 @@ import 'tabs/home_tab.dart';
 import 'tabs/vehicles_tab.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'chat/chat_screen.dart';
 import './branch/branch_map_screen.dart';
 import './customer_appointment_screen.dart';
 import './inspection/inspection_flow.dart';
@@ -27,6 +28,36 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+
+  static const _tabs = [
+    HomeTab(),
+    VehiclesTab(),
+    HistoryTab(),
+    ProfileTab(),
+  ];
+
+  static const _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.motorcycle_outlined),
+      selectedIcon: Icon(Icons.motorcycle_rounded),
+      label: 'My Vehicles',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.history_outlined),
+      selectedIcon: Icon(Icons.history_rounded),
+      label: 'History',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.person_outline_rounded),
+      selectedIcon: Icon(Icons.person_rounded),
+      label: 'Profile',
+    ),
+  ];
 
   @override
   void initState() {
@@ -52,11 +83,11 @@ class _MainScreenState extends State<MainScreen> {
               notiColor = Colors.green.shade700;
               break;
             case 'CANCELLED':
-              statusVi = 'was rejected';
+              statusVi = 'has been declined';
               notiColor = Colors.red.shade700;
               break;
             case 'COMPLETED':
-              statusVi = 'has been completed';
+              statusVi = 'repair process is completed';
               notiColor = Colors.blue.shade700;
               break;
           }
@@ -101,7 +132,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildDrawer(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final name = auth.mysqlUser?['fullName'] ?? auth.firebaseUser?.email ?? 'Customer';
-    final email = auth.firebaseUser?.email ?? 'No email yet';
+    final email = auth.firebaseUser?.email ?? 'Email not updated';
 
     return Drawer(
       backgroundColor: AppColors.canvas,
@@ -158,9 +189,9 @@ class _MainScreenState extends State<MainScreen> {
               children: [
                 _buildDrawerItem(
                   context,
-                  icon: Icons.map_rounded,
+                  icon: Icons.map_outlined,
                   title: 'Branch Map',
-                  subtitle: 'Find addresses & view distance',
+                  subtitle: 'Find addresses & check distances',
                   onTap: () {
                     Navigator.pop(context); // Close the drawer before navigating
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchMapScreen()));
@@ -168,7 +199,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.calendar_month_rounded,
+                  icon: Icons.calendar_month,
                   title: 'My Appointments',
                   subtitle: 'Track maintenance progress',
                   onTap: () {
@@ -188,6 +219,7 @@ class _MainScreenState extends State<MainScreen> {
                     RescueBottomSheet.show(context);
                   },
                 ),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8), child: Divider()),
               ],
             ),
           ),
@@ -196,7 +228,7 @@ class _MainScreenState extends State<MainScreen> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text('CareBike Version 1.0.0', style: TextStyle(color: AppColors.inkMuted, fontSize: 12, fontWeight: FontWeight.w500)),
+              child: Text('CareBike Version 1.0.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
             ),
           )
         ],
@@ -315,6 +347,15 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+        },
+        backgroundColor: Colors.teal.shade700,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        child: const Icon(Icons.smart_toy),
       ),
     );
   }

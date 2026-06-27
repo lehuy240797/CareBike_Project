@@ -9,10 +9,18 @@ import {
   Clock,
   CheckCircle2,
   Wrench,
-  UserCog
+  UserCog,
+  Package // Import thêm icon Package
 } from 'lucide-react';
 import { btnPrimary, dashTitle, eyebrow, pageSubtitle } from '../ui/styles';
 
+<<<<<<< HEAD
+const INITIAL_STATS = [
+  { id: 'today', label: 'Maintenance Orders Today', value: 24, icon: <Wrench size={20} />, color: 'var(--color-primary)' },
+  { id: 'processing', label: 'Processing', value: 15, icon: <Clock size={20} />, color: '#f59e0b' },
+  { id: 'completed', label: 'Completed', value: 82, icon: <CheckCircle2 size={20} />, color: '#10b981' },
+  { id: 'revenue', label: 'Monthly Revenue (M₫)', value: 4.5, icon: <TrendingUp size={20} />, color: '#8b5cf6' },
+=======
 const statCard =
   'group rounded-3xl border border-edge bg-white p-6 opacity-0 animate-fade-up transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-[0_0_25px_rgba(249,115,22,0.35)]';
 
@@ -33,13 +41,13 @@ const INITIAL_STATS = [
   { id: 'processing', label: 'In progress', value: 15, icon: <Clock size={20} />, color: '#f59e0b' },
   { id: 'completed', label: 'Completed', value: 82, icon: <CheckCircle2 size={20} />, color: '#10b981' },
   { id: 'revenue', label: 'Monthly revenue (M₫)', value: 4.5, icon: <TrendingUp size={20} />, color: '#8b5cf6' },
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 ];
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(INITIAL_STATS);
 
-  // Tích hợp WebSocket (STOMP) để thống kê nhảy số Real-time
   useEffect(() => {
     const stompClient = new Client({
       brokerURL: 'ws://localhost:8080/ws',
@@ -49,11 +57,8 @@ const AdminDashboard: React.FC = () => {
 
     stompClient.onConnect = () => {
       console.log('Đã kết nối WebSocket thành công cho Admin!');
-
-      // Lắng nghe kênh thông báo tổng (Yêu cầu Backend bắn tin nhắn vào /topic/admin/stats)
       stompClient.subscribe('/topic/admin/stats', (message) => {
         if (message.body) {
-          // Logic ví dụ: Tăng số lượng đơn hôm nay lên 1 khi có đơn mới toàn hệ thống
           setStats((prevStats) =>
             prevStats.map(stat =>
               stat.id === 'today' ? { ...stat, value: stat.value + 1 } : stat
@@ -68,13 +73,34 @@ const AdminDashboard: React.FC = () => {
     };
 
     stompClient.activate();
-
     return () => {
       stompClient.deactivate();
     };
   }, []);
 
   return (
+<<<<<<< HEAD
+    <div className="dashboard-inner">
+      <div className="page-header" style={{ marginBottom: '2rem' }}>
+        <LayoutDashboard size={28} className="page-header-icon" aria-hidden="true" />
+        <div>
+          <h1 className="dashboard-title" style={{ margin: 0 }}>
+            Welcome Administrator, {user?.username ?? ''} 👋
+          </h1>
+          <p className="page-subtitle">CareBike System Overview</p>
+        </div>
+      </div>
+
+      <div className="dashboard-grid">
+        {stats.map((stat) => (
+          <div className="dashboard-stat-card" key={stat.id}>
+            <div className="dashboard-stat-icon" style={{ color: stat.color }}>
+              {stat.icon}
+            </div>
+            <div className="dashboard-stat-body">
+              <span className="dashboard-stat-value">
+                {stat.id === 'revenue' ? `${stat.value}M₫` : stat.value}
+=======
     <div className="mx-auto max-w-[72rem]">
       <div className="mb-10 animate-fade-up">
         <p className={eyebrow}>Overview</p>
@@ -94,6 +120,7 @@ const AdminDashboard: React.FC = () => {
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                 live
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
               </span>
               <span className="text-xs text-ink-muted">{STAT_NOTE[stat.id]}</span>
             </div>
@@ -101,6 +128,48 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
+<<<<<<< HEAD
+      <h2 className="section-heading" style={{ marginTop: '2.5rem' }}>Quick Actions</h2>
+      <div className="dashboard-panel-grid">
+        {/* Panel Quản lý Nhân sự */}
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
+            <UserCog size={20} aria-hidden="true" />
+            <h3>Staff Accounts</h3>
+          </div>
+          <p>Create and grant permissions to Branch Managers.</p>
+          <Link to="/staff" className="app-btn dashboard-panel-btn">Go to Staff Management</Link>
+        </div>
+
+        {/* Panel Quản lý Chi nhánh */}
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
+            <Building2 size={20} aria-hidden="true" />
+            <h3>Facilities</h3>
+          </div>
+          <p>Manage physical branches and assign branch managers.</p>
+          <Link to="/branches" className="app-btn dashboard-panel-btn">Go to Branch Management</Link>
+        </div>
+
+        {/* Panel Quản lý Khách hàng */}
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
+            <Users size={20} aria-hidden="true" />
+            <h3>Customer Accounts</h3>
+          </div>
+          <p>View app users and maintenance history.</p>
+          <Link to="/customers" className="app-btn dashboard-panel-btn">Go to Customer Management</Link>
+        </div>
+
+        {/* MỚI: Panel Quản lý Phụ tùng */}
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
+            <Package size={20} aria-hidden="true" />
+            <h3>Spare Parts Inventory</h3>
+          </div>
+          <p>Manage spare parts catalog, prices, and display images.</p>
+          <Link to="/spare-parts" className="app-btn dashboard-panel-btn">Go to Spare Parts</Link>
+=======
       <h2 className="mb-4 mt-10 font-display text-xl font-black tracking-tight text-ink">
         Quick Management
       </h2>
@@ -142,6 +211,7 @@ const AdminDashboard: React.FC = () => {
           <Link to="/customers" className={`${btnPrimary} mt-2 self-start`}>
             Go to Customer Management
           </Link>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
         </div>
       </div>
     </div>

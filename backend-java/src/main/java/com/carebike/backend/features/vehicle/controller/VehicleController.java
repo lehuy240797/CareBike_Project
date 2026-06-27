@@ -54,4 +54,14 @@ public class VehicleController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    /**
+     * DELETE /api/vehicles/{id}
+     * Xóa phương tiện khỏi hệ thống (Khách hàng tự xóa xe không dùng nữa)
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteVehicle(@PathVariable Integer id) {
+        vehicleService.deleteVehicle(id);
+        return ResponseEntity.ok().body(java.util.Map.of("message", "Xóa xe thành công"));
+    }
 }

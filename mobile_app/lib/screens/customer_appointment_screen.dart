@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/web_socket_service.dart';
+import '../core/api_client.dart';
 
 class CustomerAppointmentScreen extends StatefulWidget {
   const CustomerAppointmentScreen({super.key});
@@ -59,7 +60,7 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
 
       String? token = await user.getIdToken();
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:8080/api/appointments/customer/$customerId'),
+        Uri.parse('${ApiClient.baseUrl}/appointments/customer/$customerId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

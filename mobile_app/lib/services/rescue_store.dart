@@ -17,6 +17,7 @@ class RescueStore extends ChangeNotifier {
   bool loading = true;
   List<dynamic> pending = [];
   List<dynamic> accepted = [];
+  List<dynamic> completed = [];
 
   // Fires for every brand-new PENDING SOS so listeners can raise an alarm.
   final StreamController<Map<String, dynamic>> _newSos =
@@ -55,6 +56,7 @@ class RescueStore extends ChangeNotifier {
       final data = ApiClient.parseResponse(res) as List;
       pending = data.where((r) => r['status'] == 'PENDING').toList();
       accepted = data.where((r) => r['status'] == 'ACCEPTED').toList();
+      completed = data.where((r) => r['status'] == 'COMPLETED').toList();
     } catch (e) {
       debugPrint('Error loading the rescue list: $e');
     } finally {
@@ -87,6 +89,7 @@ class RescueStore extends ChangeNotifier {
     _branchId = null;
     pending = [];
     accepted = [];
+    completed = [];
     loading = true;
   }
 }

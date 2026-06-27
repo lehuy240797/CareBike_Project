@@ -17,10 +17,17 @@ import {
 // ─── Tier badge config ────────────────────────────────────────────────────────
 
 const TIER_CONFIG: Record<MemberTier, { label: string; className: string }> = {
+<<<<<<< HEAD
+  STANDARD: { label: 'Standard', className: 'badge badge--neutral'   },
+  SILVER:   { label: 'Silver',   className: 'badge badge--silver'     },
+  GOLD:     { label: 'Gold',     className: 'badge badge--gold'       },
+  PLATINUM: { label: 'Platinum', className: 'badge badge--platinum'   },
+=======
   STANDARD: { label: 'Standard', className: badgeNeutral   },
   SILVER:   { label: 'Silver',   className: badgeSilver     },
   GOLD:     { label: 'Gold',     className: badgeGold       },
   PLATINUM: { label: 'Platinum', className: badgePlatinum   },
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 };
 
 // ─── Sub-types ────────────────────────────────────────────────────────────────
@@ -39,6 +46,9 @@ const formatDate = (dateStr: string) => {
 };
 
 const formatPoints = (pts: number) =>
+<<<<<<< HEAD
+  new Intl.NumberFormat('en-US').format(pts) + ' points';
+=======
   new Intl.NumberFormat('en-US').format(pts) + ' pts';
 
 const initials = (name: string) =>
@@ -66,6 +76,7 @@ const STATUS_FILTERS = [
   { id: 'active', label: 'Active' },
   { id: 'locked', label: 'Locked' },
 ];
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -103,7 +114,11 @@ const CustomerManagement = () => {
       allProfiles.forEach((p) => profileMap.set(p.user.id, p));
       setProfiles(profileMap);
     } catch {
+<<<<<<< HEAD
+      setLoadError('Unable to load customer list. Please try again.');
+=======
       setLoadError('Could not load customers. Please try again.');
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     } finally {
       setIsLoading(false);
     }
@@ -157,6 +172,61 @@ const CustomerManagement = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+<<<<<<< HEAD
+      <div className="dashboard-inner">
+        {/* Page header */}
+        <div className="page-header" style={{ marginBottom: '1.75rem' }}>
+          <Users size={28} className="page-header-icon" aria-hidden="true" />
+          <div>
+            <h1 className="dashboard-title" style={{ margin: 0 }}>Customer Management</h1>
+            <p className="page-subtitle">
+              {!isLoading && !loadError
+                ? `${customers.length} customer accounts`
+                : 'Customer Account List'}
+            </p>
+          </div>
+        </div>
+
+        {/* Table card */}
+        <div className="table-card">
+          {isLoading ? (
+            <div className="table-empty">
+              <div className="table-spinner" aria-label="Loading..." />
+              <p>Loading customers list...</p>
+            </div>
+          ) : loadError ? (
+            <div className="table-empty table-empty--error">
+              <p>{loadError}</p>
+              <button type="button" className="app-btn app-btn--outline" onClick={fetchAll}>Retry</button>
+            </div>
+          ) : customers.length === 0 ? (
+            <div className="table-empty">
+              <Users size={40} aria-hidden="true" style={{ opacity: 0.3 }} />
+              <p>No customers found.</p>
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Full Name</th>
+                    <th>Account / Email</th>
+                    <th>Join Date</th>
+                    <th>Member Tier</th>
+                    <th>Points</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((customer) => {
+                    const isActive = customer.isActive !== false;
+                    const isToggling = togglingId === customer.id;
+                    const profile = profiles.get(customer.id);
+                    const tier = (profile?.memberTier as MemberTier) ?? 'STANDARD';
+                    const tierCfg = TIER_CONFIG[tier];
+=======
       <div className="mx-auto max-w-[80rem]">
         {/* Header */}
         <div className="mb-8 animate-fade-up">
@@ -203,6 +273,7 @@ const CustomerManagement = () => {
                 </div>
               ))}
             </div>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 
             {/* Filter bar */}
             <div className="mb-6 flex flex-wrap items-center gap-4 rounded-3xl border border-edge bg-white p-4 shadow-sm">
@@ -330,6 +401,56 @@ const CustomerManagement = () => {
                             ? <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-current/30 border-t-current" />
                             : isActive ? <Lock size={15} /> : <Unlock size={15} />
                           }
+<<<<<<< HEAD
+                        </td>
+
+                        {/* Account status */}
+                        <td>
+                          <span className={`badge ${isActive ? 'badge--success' : 'badge--danger'}`}>
+                            {isActive ? 'Active' : 'Locked'}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td>
+                          <div className="table-actions">
+                            {/* A: Lock / Unlock */}
+                            <button
+                              type="button"
+                              className={`icon-btn ${isActive ? 'icon-btn--delete' : 'icon-btn--unlock'}`}
+                              title={isActive ? 'Lock Account' : 'Unlock Account'}
+                              onClick={() => handleToggleStatus(customer)}
+                              disabled={isToggling}
+                              aria-busy={isToggling}
+                            >
+                              {isToggling
+                                ? <span className="table-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
+                                : isActive ? <Lock size={15} /> : <Unlock size={15} />
+                              }
+                            </button>
+
+                            {/* B: Vehicle profile (read-only) */}
+                            <button
+                              type="button"
+                              className="icon-btn icon-btn--vehicle"
+                              title="Vehicle Profile"
+                              onClick={() => setModal({ type: 'vehicle', customer })}
+                            >
+                              <Bike size={15} />
+                            </button>
+
+                            {/* C: Maintenance history */}
+                            <button
+                              type="button"
+                              className="icon-btn icon-btn--maintenance"
+                              title="Maintenance History"
+                              onClick={() => setModal({ type: 'maintenance', customer })}
+                            >
+                              <Wrench size={15} />
+                            </button>
+                          </div>
+                        </td>
+=======
                         </button>
                       </div>
                     </div>
@@ -351,6 +472,7 @@ const CustomerManagement = () => {
                         <th className={thCell}>Points</th>
                         <th className={thCell}>Status</th>
                         <th className={`${thCell} text-right`}>Actions</th>
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
                       </tr>
                     </thead>
                     <tbody className="[&>tr:last-child>td]:border-b-0">

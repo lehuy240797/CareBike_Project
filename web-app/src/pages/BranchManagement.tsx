@@ -6,17 +6,26 @@ import { getBranches, deleteBranch } from '../services/branchService';
 import type { BranchRecord } from '../services/branchService';
 import BranchModal from '../components/modals/BranchModal';
 import ConfirmModal from '../components/modals/ConfirmModal';
+<<<<<<< HEAD
+import toast from 'react-hot-toast';
+=======
 import {
   badgeDanger, badgeNeutral, badgeSuccess, btnOutline, btnPrimary, dashTitle, eyebrow,
   iconBtnDelete, iconBtnEdit, tableCard, tableEmpty, dataTable,
   tableScroll, tableSpinner, tdCell, thCell, tableRow,
 } from '../ui/styles';
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 
 // ─── Status badge config ──────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
+<<<<<<< HEAD
+  ACTIVE: { label: 'Active', className: 'badge badge--success' },
+  INACTIVE: { label: 'Inactive', className: 'badge badge--danger' },
+=======
   ACTIVE: { label: 'Active', className: badgeSuccess },
   INACTIVE: { label: 'Suspended', className: badgeDanger },
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 };
 
 const statusOf = (b: BranchRecord) =>
@@ -77,7 +86,11 @@ const BranchManagement = () => {
       const data = await getBranches();
       setBranches(data);
     } catch {
+<<<<<<< HEAD
+      setLoadError('Unable to load branch data. Please try again.');
+=======
       setLoadError('Could not load branches. Please try again.');
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     } finally {
       setIsLoading(false);
     }
@@ -122,9 +135,10 @@ const BranchManagement = () => {
     try {
       await deleteBranch(confirmModal.branch.id);
       setBranches((prev) => prev.filter((b) => b.id !== confirmModal.branch!.id));
+      toast.success('Branch deleted successfully');
       closeDeleteConfirm();
-    } catch {
-      /* keep modal open — user can retry */
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Unable to delete branch. It may have associated data.');
     } finally {
       setIsDeleting(false);
     }
@@ -156,6 +170,101 @@ const BranchManagement = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+<<<<<<< HEAD
+      <div className="dashboard-inner">
+        {/* Page header */}
+        <div className="page-header" style={{ marginBottom: '1.75rem' }}>
+          <Building2 size={28} className="page-header-icon" aria-hidden="true" />
+          <div style={{ flex: 1 }}>
+            <h1 className="dashboard-title" style={{ margin: 0 }}>Branch Management</h1>
+            <p className="page-subtitle">
+              {!isLoading && !loadError ? `${branches.length} branches in system` : 'Branch List'}
+            </p>
+          </div>
+          <button type="button" className="app-btn" onClick={openCreate}>
+            <Plus size={16} aria-hidden="true" />
+            Add Branch
+          </button>
+        </div>
+
+        {/* Table card */}
+        <div className="table-card">
+          {isLoading ? (
+            <div className="table-empty">
+              <div className="table-spinner" aria-label="Loading..." />
+              <p>Loading data...</p>
+            </div>
+          ) : loadError ? (
+            <div className="table-empty table-empty--error">
+              <p>{loadError}</p>
+              <button type="button" className="app-btn app-btn--outline" onClick={fetchBranches}>
+                Retry
+              </button>
+            </div>
+          ) : branches.length === 0 ? (
+            <div className="table-empty">
+              <Building2 size={40} aria-hidden="true" style={{ opacity: 0.3 }} />
+              <p>No branches found.</p>
+              <button type="button" className="app-btn" onClick={openCreate}>
+                <Plus size={15} />
+                Create First Branch
+              </button>
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Branch Name</th>
+                    <th>Address</th>
+                    <th>Phone</th>
+                    <th>Manager</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branches.map((branch) => {
+                    const status = STATUS_MAP[branch.status?.toUpperCase()] ?? {
+                      label: branch.status,
+                      className: 'badge badge--neutral',
+                    };
+                    return (
+                      <tr key={branch.id}>
+                        <td className="td-muted">{branch.id}</td>
+                        <td className="td-primary">{branch.name}</td>
+                        <td>{branch.address ?? '—'}</td>
+                        <td>{branch.phone ?? '—'}</td>
+                        <td>
+                          {branch.manager ? (
+                            <span className="font-medium">
+                              {branch.manager.fullName || branch.manager.email || `ID: ${branch.manager.id}`}
+                            </span>
+                          ) : (
+                            <span className="td-muted">None</span>
+                          )}
+                        </td>
+                        <td><span className={status.className}>{status.label}</span></td>
+                        <td>
+                          <div className="table-actions">
+                            <button
+                              type="button"
+                              className="icon-btn icon-btn--edit"
+                              title="Edit"
+                              onClick={() => openEdit(branch)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-btn icon-btn--delete"
+                              title="Delete branch"
+                              onClick={() => openDeleteConfirm(branch)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+=======
       <div className="mx-auto max-w-[80rem]">
         {/* Header */}
         <div className="mb-8 flex items-start justify-between gap-4 animate-fade-up">
@@ -257,6 +366,7 @@ const BranchManagement = () => {
                         <div className="flex items-center gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-lg font-black text-white">
                             {branch.name?.[0]?.toUpperCase() ?? 'B'}
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
                           </div>
                           <div>
                             <h4 className="m-0 font-display text-sm font-black leading-tight text-ink">{branch.name}</h4>
@@ -388,8 +498,13 @@ const BranchManagement = () => {
 
       {confirmModal.open && confirmModal.branch && (
         <ConfirmModal
+<<<<<<< HEAD
+          title="Delete Branch"
+          message={`Are you sure you want to delete branch "${confirmModal.branch.name}"? This action cannot be undone.`}
+=======
           title="Delete branch"
           message={`Are you sure you want to delete the branch "${confirmModal.branch.name}"? This action cannot be undone.`}
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
           confirmLabel="Delete"
           isDestructive
           isLoading={isDeleting}

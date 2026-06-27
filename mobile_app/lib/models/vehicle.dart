@@ -4,7 +4,7 @@ class Vehicle {
   final String vehicleType;
   final String vehicleName;
 
-  // 3 new data fields
+  // 3 New data fields
   final String licensePlate;
   final int? engineCapacity;
   final int? currentKm;

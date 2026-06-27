@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../core/api_client.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -100,7 +101,7 @@ class AuthProvider with ChangeNotifier {
       await credential.user?.sendEmailVerification();
 
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/register'),
+        Uri.parse('${ApiClient.baseUrl}/auth/register'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -113,7 +114,7 @@ class AuthProvider with ChangeNotifier {
           await credential.user?.delete();
         }
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? "The system is busy. Please try again later.");
+        throw Exception(errorData['message'] ?? "System is busy. Please try again later.");
       }
 
       await logout();
@@ -141,8 +142,8 @@ class AuthProvider with ChangeNotifier {
       );
       await _syncWithSpringBoot(credential.user);
     } catch (e) {
-      if (!context.mounted) return;
       await _auth.signOut();
+      if (!context.mounted) return;
       _showErrorDialog(context, _getFriendlyErrorMessage(e.toString()));
     } finally {
       _isLoading = false;
@@ -154,7 +155,7 @@ class AuthProvider with ChangeNotifier {
     if (email.trim().isEmpty) return;
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
-      _showSuccessDialog(context, "Email sent", "A password reset link has been sent to your inbox. Please check your inbox or spam folder.");
+      _showSuccessDialog(context, "Sent Successfully", "A password reset link has been sent to your email. Please check your inbox or spam folder.");
     } catch (e) {
       _showErrorDialog(context, _getFriendlyErrorMessage(e.toString()));
     }
@@ -166,8 +167,8 @@ class AuthProvider with ChangeNotifier {
     if (isGoogleAccount) {
       _showErrorDialog(
           context,
-          "Your account is protected by Google. To change your password, please use your Google Account settings.",
-          title: "Notice"
+          "Your account is protected by Google. To change your password, please do so on your Google Account Management page.",
+          title: "Notification"
       );
       return;
     }
@@ -180,11 +181,11 @@ class AuthProvider with ChangeNotifier {
       await _firebaseUser!.reauthenticateWithCredential(credential);
       await _firebaseUser!.updatePassword(newPassword);
 
-      _showSuccessDialog(context, "Success", "Your password has been updated securely.");
+      _showSuccessDialog(context, "Success", "Your password has been securely updated.");
     } catch (e) {
       String errorMsg = e.toString();
       if (errorMsg.contains('wrong-password') || errorMsg.contains('invalid-credential')) {
-        _showErrorDialog(context, "Your current password is incorrect. Please check again.");
+        _showErrorDialog(context, "The current password is incorrect. Please double check.");
       } else {
         _showErrorDialog(context, _getFriendlyErrorMessage(errorMsg));
       }
@@ -197,7 +198,7 @@ class AuthProvider with ChangeNotifier {
     String? token = await user.getIdToken();
 
     final response = await http.post(
-      Uri.parse('http://10.0.2.2:8080/api/auth/login'),
+      Uri.parse('${ApiClient.baseUrl}/auth/login'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -210,7 +211,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     } else {
       final errorData = jsonDecode(response.body);
-      throw Exception(errorData['message'] ?? "Security reason: access was denied by the system.");
+      throw Exception(errorData['message'] ?? "Security reason: System denied access.");
     }
   }
 
@@ -222,7 +223,7 @@ class AuthProvider with ChangeNotifier {
         await _googleSignIn.signOut();
       }
     } catch (e) {
-      debugPrint("Logout cleanup error: $e");
+      debugPrint("Session cleanup error on logout: $e");
     } finally {
       _mysqlUser = null;
       notifyListeners();
@@ -231,16 +232,16 @@ class AuthProvider with ChangeNotifier {
 
   String _getFriendlyErrorMessage(String rawError) {
     final error = rawError.toLowerCase();
-    if (error.contains('email-already-in-use')) return "This email is already in use. Please sign in or use a different email.";
-    if (error.contains('invalid-credential') || error.contains('wrong-password') || error.contains('user-not-found')) return "Incorrect login details. Please check your email or password.";
-    if (error.contains('user-disabled')) return "Your account has been suspended. Please contact support for help.";
-    if (error.contains('too-many-requests')) return "Too many failed attempts. Please try again in a few minutes for your security.";
+    if (error.contains('email-already-in-use')) return "This email is already in use. Please log in or use another email.";
+    if (error.contains('invalid-credential') || error.contains('wrong-password') || error.contains('user-not-found')) return "Incorrect login info. Please double check your email and password.";
+    if (error.contains('user-disabled')) return "Your account has been temporarily disabled. Please contact support.";
+    if (error.contains('too-many-requests')) return "Too many failed attempts. Please try again later for your safety.";
     if (error.contains('network-request-failed')) return "No network connection. Please check your Wifi/4G.";
-    if (error.contains('invalid-email')) return "Invalid email format. Correct example: yourname@gmail.com";
+    if (error.contains('invalid-email')) return "Invalid email format. For example: yourname@gmail.com";
 
     String cleanError = rawError.replaceAll(RegExp(r'^Exception:\s*'), '').trim();
-    if (cleanError.contains('PlatformException')) return "A connection problem occurred with the login system. Please try again.";
-    return cleanError.isNotEmpty ? cleanError : "The system is under maintenance or experiencing an issue. Please try again later.";
+    if (cleanError.contains('PlatformException')) return "A connection error occurred. Please try again.";
+    return cleanError.isNotEmpty ? cleanError : "System is under maintenance or encountering issues. Please try again later.";
   }
 
   void _showErrorDialog(BuildContext context, String message, {String title = "An error occurred"}) {
@@ -274,7 +275,7 @@ class AuthProvider with ChangeNotifier {
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 15, height: 1.4)),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(fontSize: 16)))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Confirm", style: TextStyle(fontSize: 16)))],
       ),
     );
   }

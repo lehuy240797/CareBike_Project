@@ -38,7 +38,7 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
   @override
   void initState() {
     super.initState();
-    // Raise the emergency alarm for any brand-new, unaccepted SOS — from any tab.
+    // Raise the emergency alarm for any brand-new, unaccepted SOS ΓÇö from any tab.
     _sosSub = RescueStore.instance.onNewSos.listen(_handleNewSos);
   }
 
@@ -310,7 +310,7 @@ class _BranchHomeTab extends StatelessWidget {
           Text('Branch management',
               style: TextStyle(fontSize: 14, color: AppColors.inkMuted, fontWeight: FontWeight.w500)),
           const SizedBox(height: 24),
-          // Live rescue stats + SOS queue — rebuilds whenever the store changes.
+          // Live rescue stats + SOS queue ΓÇö rebuilds whenever the store changes.
           ListenableBuilder(
             listenable: RescueStore.instance,
             builder: (context, _) {
@@ -441,7 +441,7 @@ class _BranchHomeTab extends StatelessWidget {
               ),
               const SizedBox(width: 9),
               Expanded(
-                child: Text('SOS — NEEDS RESPONSE',
+                child: Text('SOS ΓÇö NEEDS RESPONSE',
                     style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.danger, letterSpacing: 0.4)),
               ),
               Container(
@@ -488,7 +488,7 @@ class _BranchHomeTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          Text('⚠️ $issue',
+          Text('ΓÜá∩╕Å $issue',
               maxLines: 2, overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 12.5, color: AppColors.danger, fontWeight: FontWeight.w600, height: 1.3)),
           const SizedBox(height: 11),
@@ -544,7 +544,9 @@ class _BranchAppointmentTab extends StatefulWidget {
 }
 
 class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
-  List<dynamic> _appointments = [];
+  List<dynamic> _pendingApts = [];
+  List<dynamic> _confirmedApts = [];
+  List<dynamic> _completedApts = [];
   bool _isLoading = true;
 
   @override
@@ -552,17 +554,16 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
     super.initState();
     _fetchAppointments();
     
-    // Open a WebSocket to listen for new booking requests in real time
+    // Initialize WebSocket connection to listen for new appointments in real-time
     WebSocketService.connectBranchAppointments(widget.branchId, (newAppointment) {
       if (mounted) {
         setState(() {
-          // Push the new booking to the top and refresh the UI without re-calling the API
-          _appointments.insert(0, newAppointment);
+          _pendingApts.insert(0, newAppointment);
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🚨 New maintenance booking! Please check.'),
+            content: Text('≡ƒÜ¿ New maintenance appointment! Please check.'),
             backgroundColor: Colors.blue,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 4),
@@ -574,7 +575,6 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
 
   @override
   void dispose() {
-    // Disconnect the WebSocket to free resources when this tab is disposed
     WebSocketService.disconnect();
     super.dispose();
   }
@@ -588,163 +588,219 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
 
       String? token = await user.getIdToken();
       
-      // Load the list from the backend: both Pending and Confirmed
       final pendingRes = await http.get(
-        Uri.parse('http://10.0.2.2:8080/api/appointments/branch/${widget.branchId}?status=PENDING'),
+        Uri.parse('${ApiClient.baseUrl}/appointments/branch/${widget.branchId}?status=PENDING'),
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       );
       final confirmedRes = await http.get(
-        Uri.parse('http://10.0.2.2:8080/api/appointments/branch/${widget.branchId}?status=CONFIRMED'),
+        Uri.parse('${ApiClient.baseUrl}/appointments/branch/${widget.branchId}?status=CONFIRMED'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      );
+      final completedRes = await http.get(
+        Uri.parse('${ApiClient.baseUrl}/appointments/branch/${widget.branchId}?status=COMPLETED'),
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       );
 
       if (pendingRes.statusCode == 200 && confirmedRes.statusCode == 200) {
-        final List<dynamic> pendingData = jsonDecode(utf8.decode(pendingRes.bodyBytes));
-        final List<dynamic> confirmedData = jsonDecode(utf8.decode(confirmedRes.bodyBytes));
-        
-        // Merge the two lists and sort by ID (newest first)
-        final combined = [...pendingData, ...confirmedData];
-        combined.sort((a, b) => b['id'].compareTo(a['id']));
-
         if (mounted) {
           setState(() {
-            _appointments = combined;
+            _pendingApts = jsonDecode(utf8.decode(pendingRes.bodyBytes));
+            _confirmedApts = jsonDecode(utf8.decode(confirmedRes.bodyBytes));
+            _completedApts = completedRes.statusCode == 200 ? jsonDecode(utf8.decode(completedRes.bodyBytes)) : [];
+            
+            _pendingApts.sort((a, b) => b['id'].compareTo(a['id']));
+            _confirmedApts.sort((a, b) => b['id'].compareTo(a['id']));
+            _completedApts.sort((a, b) => b['id'].compareTo(a['id']));
+            
             _isLoading = false;
           });
         }
       } else {
-        throw Exception("Failed to fetch data");
+        throw Exception("Failed to retrieve data");
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      debugPrint("Error fetching appointments: $e");
+      debugPrint("Error retrieving appointments: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.canvas,
-      appBar: AppBar(
-        title: const Text('Appointment Management'),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        backgroundColor: AppColors.canvas,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: AppBar(
+          title: const Text('Manage Appointments', style: TextStyle(fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.red.shade700,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchAppointments)
+          ],
+          bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            indicatorWeight: 4,
+            tabs: [
+              Tab(text: 'WAITING CONFIRMATION'),
+              Tab(text: 'PROCESSING'),
+              Tab(text: 'COMPLETED'),
+            ],
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Colors.red))
+            : TabBarView(
+                children: [
+                  _buildList(_pendingApts, isPending: true),
+                  _buildList(_confirmedApts, isConfirmed: true),
+                  _buildList(_completedApts, isCompleted: true),
+                ],
+              ),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : _appointments.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+
+  Widget _buildList(List<dynamic> list, {bool isPending = false, bool isConfirmed = false, bool isCompleted = false}) {
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.green.shade300),
+            const SizedBox(height: 16),
+            Text(isCompleted ? 'No completed appointments yet.' : (isPending ? 'No new appointments.' : 'No processing appointments yet.'), style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchAppointments,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final apt = list[index];
+          final DateTime date = DateTime.parse(apt['appointmentDate']).toLocal();
+          final String formattedDate = DateFormat('HH:mm - dd/MM/yyyy').format(date);
+          final String customerName = apt['customer']?['fullName'] ?? apt['customerName'] ?? 'Customer';
+          final vehicle = apt['vehicle'] ?? {};
+          final vehicleInfo = vehicle.isNotEmpty ? '${vehicle['brand']} ${vehicle['model']} - ${vehicle['licensePlate']}' : 'No vehicle data';
+
+          Color borderColor = Colors.grey;
+          IconData statusIcon = Icons.calendar_today;
+          if (isPending) { borderColor = Colors.orange; statusIcon = Icons.warning_amber_rounded; }
+          if (isConfirmed) { borderColor = Colors.blue; statusIcon = Icons.build; }
+          if (isCompleted) { borderColor = Colors.green; statusIcon = Icons.check_circle; }
+
+          return Card(
+            elevation: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: borderColor, width: 6)),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.check_circle_outline_rounded, size: 64, color: AppColors.edge),
-                      const SizedBox(height: 16),
-                      Text('No pending appointments',
-                          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.inkMuted)),
+                      Text('Appointment #${apt['id']}', style: TextStyle(fontWeight: FontWeight.bold, color: borderColor, fontSize: 16)),
+                      Icon(statusIcon, color: borderColor),
                     ],
                   ),
-                )
-              : RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: _fetchAppointments,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    itemCount: _appointments.length,
-                    itemBuilder: (context, index) {
-                      final apt = _appointments[index];
-                      final DateTime date = DateTime.parse(apt['appointmentDate']).toLocal();
-                      final String formattedDate = DateFormat('HH:mm - dd/MM/yyyy').format(date);
-                      final String customerName = apt['customer']?['fullName'] ?? apt['customerName'] ?? 'Customer';
-                      final String status = apt['status'];
-                      final confirmed = status == 'CONFIRMED';
+                  const Divider(),
+                  Text('Customer: $customerName', style: const TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(formattedDate, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('≡ƒÜÖ Vehicle: $vehicleInfo', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        if (apt['note'] != null && apt['note'].toString().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('≡ƒô¥ Note: ${apt['note']}'),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.edge),
-                          boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 8))],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => _showAppointmentActionSheet(context, apt),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 46, height: 46,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: (confirmed ? AppColors.success : AppColors.primary).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Icon(Icons.person_rounded, color: confirmed ? AppColors.success : AppColors.primary, size: 23),
-                                ),
-                                const SizedBox(width: 13),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(customerName, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.ink)),
-                                      const SizedBox(height: 5),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.access_time_rounded, size: 14, color: AppColors.faint),
-                                          const SizedBox(width: 4),
-                                          Text(formattedDate, style: TextStyle(color: AppColors.faint, fontSize: 12, fontWeight: FontWeight.w500)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 7),
-                                      _buildStatusBadge(status),
-                                    ],
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right_rounded, color: AppColors.hairline),
-                              ],
-                            ),
+                  if (isCompleted) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8)
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green),
+                          SizedBox(width: 8),
+                          Text('PAID & COMPLETED', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ] else if (isPending) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _updateAppointmentStatus(context, apt['id'], 'CONFIRMED'),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('CONFIRM', style: TextStyle(fontSize: 12)),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade600),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => _updateAppointmentStatus(context, apt['id'], 'CANCELLED'),
+                          child: const Text('Decline', style: TextStyle(color: Colors.red)),
+                        )
+                      ],
+                    ),
+                  ] else if (isConfirmed) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _updateAppointmentStatus(context, apt['id'], 'COMPLETED'),
+                        icon: const Icon(Icons.done_all),
+                        label: const Text('COMPLETE MAINTENANCE', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.blue.shade700),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
-  /// Build the status label for a booking
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    Color bg;
-    String text;
-    switch (status) {
-      case 'PENDING':
-        color = AppColors.primaryDeep;
-        bg = AppColors.primaryMuted;
-        text = 'Pending';
-        break;
-      case 'CONFIRMED':
-        color = AppColors.success;
-        bg = AppColors.successBg;
-        text = 'Vehicle received';
-        break;
-      default:
-        color = AppColors.inkMuted;
-        bg = const Color(0xFFF1EDE8);
-        text = status;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-    );
-  }
-
-  /// Update appointment status via the backend API and refresh the UI locally
   Future<void> _updateAppointmentStatus(BuildContext context, int appointmentId, String newStatus) async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -753,9 +809,8 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
       
       String? token = await user.getIdToken();
       
-      // Call the API to update data on the server
       final response = await http.put(
-        Uri.parse('http://10.0.2.2:8080/api/appointments/$appointmentId/status'),
+        Uri.parse('${ApiClient.baseUrl}/appointments/$appointmentId/status'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -764,26 +819,11 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
       );
 
       if (response.statusCode == 200) {
-        // Close the BottomSheet
-        if (mounted) Navigator.pop(context);
-
-        // Update local state so the UI changes instantly without a GET
-        setState(() {
-          final index = _appointments.indexWhere((a) => a['id'] == appointmentId);
-          if (index != -1) {
-            // If completed or cancelled, remove from the list; otherwise update the label.
-            if (newStatus == 'COMPLETED' || newStatus == 'CANCELLED') {
-              _appointments.removeAt(index);
-            } else {
-              _appointments[index]['status'] = newStatus;
-            }
-          }
-        });
-
+        _fetchAppointments();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Status updated successfully!'),
+              content: Text('Γ£à Appointment status updated successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -792,101 +832,17 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         throw Exception("Server communication failed.");
       }
     } catch (e) {
-      debugPrint('Error updating status: $e');
+      debugPrint('Status update error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('System error: could not update the status.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('System Error: Cannot update status.'), backgroundColor: Colors.red),
         );
       }
     }
   }
-
-  /// BottomSheet with business action buttons
-  void _showAppointmentActionSheet(BuildContext context, dynamic apt) {
-    final status = apt['status'];
-    final customerName = apt['customer']?['fullName'] ?? 'Anonymous customer';
-    final vehicle = apt['vehicle'] ?? {};
-    final vehicleInfo = vehicle.isNotEmpty ? '${vehicle['brand']} ${vehicle['model']} - ${vehicle['licensePlate']}' : 'No vehicle data';
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: AppColors.edge, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text('Handle appointment #${apt['id']}', style: GoogleFonts.poppins(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.ink)),
-              const SizedBox(height: 16),
-              Text('👤 Customer: $customerName', style: TextStyle(fontSize: 15, color: AppColors.ink, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Text('🛵 Vehicle: $vehicleInfo', style: TextStyle(fontSize: 15, color: AppColors.inkMuted)),
-              const SizedBox(height: 8),
-              Text('📝 Note: ${apt['note'] ?? 'None'}', style: TextStyle(fontSize: 15, fontStyle: FontStyle.italic, color: AppColors.inkMuted)),
-              const SizedBox(height: 24),
-
-              if (status == 'PENDING')
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: FilledButton.icon(
-                    onPressed: () => _updateAppointmentStatus(context, apt['id'], 'CONFIRMED'),
-                    icon: const Icon(Icons.check_circle_rounded),
-                    label: const Text('Confirm vehicle received'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              if (status == 'CONFIRMED')
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: FilledButton.icon(
-                    onPressed: () => _updateAppointmentStatus(context, apt['id'], 'COMPLETED'),
-                    icon: const Icon(Icons.done_all_rounded),
-                    label: const Text('Complete maintenance'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: TextButton.icon(
-                  onPressed: () => _updateAppointmentStatus(context, apt['id'], 'CANCELLED'),
-                  icon: const Icon(Icons.cancel_rounded),
-                  label: const Text('Reject / Cancel'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    backgroundColor: AppColors.dangerBg,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
-/// Profile tab: account info and session controls
+/// Profile interface: Account information and session control
 class _BranchProfileTab extends StatelessWidget {
   const _BranchProfileTab();
 

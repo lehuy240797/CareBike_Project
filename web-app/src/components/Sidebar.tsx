@@ -7,6 +7,9 @@ import {
   Users,
   KeyRound,
   UserCog,
+  Layers,
+  CalendarDays,
+  History,
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,26 +27,69 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['ADMIN', 'BRANCH'],
   },
   {
+    to: '/shifts',
+    icon: <CalendarDays size={18} aria-hidden="true" />,
+    label: 'Shift Schedule',
+    roles: ['BRANCH'],
+  },
+  {
+    to: '/history',
+    icon: <History size={18} aria-hidden="true" />,
+    label: 'Request History',
+    roles: ['BRANCH'],
+  },
+  {
     to: '/staff',
+<<<<<<< HEAD
+    icon: <UserCog size={18} aria-hidden="true" />,
+    label: 'Staff Management',
+=======
     icon: <UserCog size={20} aria-hidden="true" />,
     label: 'Staff',
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     roles: ['ADMIN'],
   },
   {
     to: '/branches',
+<<<<<<< HEAD
+    icon: <Building2 size={18} aria-hidden="true" />,
+    label: 'Branch Management',
+=======
     icon: <Building2 size={20} aria-hidden="true" />,
     label: 'Branches',
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     roles: ['ADMIN'],
   },
   {
     to: '/customers',
+<<<<<<< HEAD
+    icon: <Users size={18} aria-hidden="true" />,
+    label: 'Customer Management',
+    roles: ['ADMIN'],
+  },
+  {
+    to: '/categories',
+    icon: <Layers size={18} aria-hidden="true" />,
+    label: 'Category Management',
+    roles: ['ADMIN'],
+  },
+  {
+    to: '/spare-parts',
+    icon: <Wrench size={18} aria-hidden="true" />,
+    label: 'Spare Parts',
+=======
     icon: <Users size={20} aria-hidden="true" />,
     label: 'Customers',
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     roles: ['ADMIN'],
   },
   {
     to: '/change-password',
+<<<<<<< HEAD
+    icon: <KeyRound size={18} aria-hidden="true" />,
+=======
     icon: <KeyRound size={20} aria-hidden="true" />,
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
     label: 'Change Password',
     roles: ['ADMIN', 'BRANCH'],
   },
@@ -63,10 +109,20 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     (item) => userRole && (item.roles as string[]).includes(userRole),
   );
 
+<<<<<<< HEAD
+  return (
+    <aside className="app-sidebar" aria-label="Menu điều hướng">
+      {/* Service label */}
+      <p className="app-sidebar-section-label">
+        <Wrench size={12} aria-hidden="true" />
+        System Management
+      </p>
+=======
   // Sliding active indicator (mirrors my-app's AdminSidebar)
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [indicator, setIndicator] = useState<{ top: number; height: number }>({ top: 0, height: 0 });
   const [animate, setAnimate] = useState(false);
+>>>>>>> 492036b821510e5bc8b94cc4f674d63891445bc7
 
   const activeIndex = visibleItems.findIndex((item) =>
     item.to === '/' ? pathname === '/' : pathname.startsWith(item.to),
