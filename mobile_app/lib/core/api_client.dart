@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// Centralized HTTP client for all CareBike API calls.
 /// Base URL: http://10.0.2.2:8080/api  (Android emulator → host machine localhost)
 class ApiClient {
-  static const String baseUrl = 'http://10.0.2.2:8080/api';
+  static const String baseUrl = 'http://192.168.100.78:8080/api';
 
   // ── Auth headers ────────────────────────────────────────────────────────────
 

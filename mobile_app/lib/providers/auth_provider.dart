@@ -100,7 +100,7 @@ class AuthProvider with ChangeNotifier {
       await credential.user?.sendEmailVerification();
 
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/register'),
+        Uri.parse('http://192.168.100.78:8080/api/auth/register'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -197,7 +197,7 @@ class AuthProvider with ChangeNotifier {
     String? token = await user.getIdToken();
 
     final response = await http.post(
-      Uri.parse('http://10.0.2.2:8080/api/auth/login'),
+      Uri.parse('http://192.168.100.78:8080/api/auth/login'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

@@ -60,6 +60,9 @@ public class SecurityConfig {
                 // Customer có thể đặt lịch, Branch/Admin có thể xem lịch
                 .requestMatchers("/api/appointments/**").hasAnyRole("CUSTOMER", "BRANCH", "ADMIN")
 
+                // AI Tư vấn bảo dưỡng — cho phép tất cả người dùng đã xác thực
+                .requestMatchers("/api/ai/**").hasAnyRole("CUSTOMER", "BRANCH", "ADMIN")
+
                 // Tất cả các request khác phải có Token hợp lệ
                 .anyRequest().authenticated()
             );

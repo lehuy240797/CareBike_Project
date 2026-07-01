@@ -16,7 +16,7 @@ class WebSocketService {
     _stompClient = StompClient(
       config: StompConfig(
         // Dùng 10.0.2.2 cho máy ảo Android, nếu test máy thật phải dùng IP LAN (VD: 192.168.1.x)
-        url: 'ws://10.0.2.2:8080/ws',
+        url: 'ws://192.168.100.78:8080/ws',
         onConnect: (StompFrame frame) {
           debugPrint('Đã kết nối WebSocket (Khách hàng ID: $customerId)');
 
@@ -48,7 +48,7 @@ class WebSocketService {
 
     _stompClient = StompClient(
       config: StompConfig(
-        url: 'ws://10.0.2.2:8080/ws', // Nhớ đổi thành IP LAN nếu test máy thật
+        url: 'ws://192.168.100.78:8080/ws', // Nhớ đổi thành IP LAN nếu test máy thật
         onConnect: (StompFrame frame) {
           debugPrint('📡 Đã bật Radar Cứu hộ (Chi nhánh ID: $branchId)');
 
@@ -79,7 +79,7 @@ class WebSocketService {
 
     _branchAppointmentStompClient = StompClient(
       config: StompConfig(
-        url: 'ws://10.0.2.2:8080/ws',
+        url: 'ws://192.168.100.78:8080/ws',
         onConnect: (StompFrame frame) {
           debugPrint('📡 Đã bật Lắng nghe Lịch Hẹn (Chi nhánh ID: $branchId)');
           _branchAppointmentStompClient?.subscribe(
