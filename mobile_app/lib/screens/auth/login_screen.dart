@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../core/theme.dart';
+import '../../core/theme_controller.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/app_text_field.dart';
-import '../../widgets/loading_button.dart';
+import '_auth_widgets.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -28,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // AuthProvider sẽ tự lo việc hiện Loading và báo lỗi
+    // AuthProvider handles showing the loading state and errors
     await context.read<AuthProvider>().signInWithEmailForm(
       context,
       _emailCtrl.text.trim(),
@@ -38,140 +40,173 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final auth = context.watch<AuthProvider>();
+    context.watch<ThemeController>(); // repaint tokens when the theme flips
 
     return Scaffold(
-      backgroundColor: scheme.surface,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-          child: Form(
-            key: _formKey,
+      backgroundColor: AppColors.canvas,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
-
-                // ── Brand mark ──
-                Center(
-                  child: Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [scheme.primary, scheme.tertiary],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.35),
-                          blurRadius: 20, offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Icon(Icons.motorcycle_rounded, size: 44, color: scheme.onPrimary),
+                const AuthHero(),
+                Transform.translate(
+                  offset: const Offset(0, -44),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: _card(auth),
                   ),
                 ),
-                const SizedBox(height: 28),
-                Center(
-                  child: Text('CareBike',
-                    style: TextStyle(
-                      fontSize: 28, fontWeight: FontWeight.w800,
-                      color: scheme.primary, letterSpacing: -0.5,
-                    ),
-                  ),
+                Transform.translate(
+                  offset: const Offset(0, -22),
+                  child: _signupLink(),
                 ),
-                Center(
-                  child: Text('Chăm sóc xe máy thông minh', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14)),
-                ),
-                const SizedBox(height: 40),
-
-                // ── Form ──
-                Text('Đăng nhập', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                const SizedBox(height: 6),
-                Text('Chào mừng trở lại!', style: TextStyle(color: scheme.onSurfaceVariant)),
-                const SizedBox(height: 24),
-
-                AppTextField(
-                  label: 'Email',
-                  controller: _emailCtrl,
-                  hint: 'example@gmail.com',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên đăng nhập.' : null,
-                ),
-                const SizedBox(height: 16),
-
-                AppTextField(
-                  label: 'Mật khẩu',
-                  controller: _passwordCtrl,
-                  hint: 'Nhập mật khẩu',
-                  obscureText: _obscurePass,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu.' : null,
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                  ),
-                ),
-
-                // Nút Quên mật khẩu
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      if (_emailCtrl.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập email phía trên trước khi lấy lại mật khẩu')));
-                        return;
-                      }
-                      context.read<AuthProvider>().sendForgotPasswordEmail(context, _emailCtrl.text);
-                    },
-                    child: Text('Quên mật khẩu?', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                LoadingButton(
-                  label: 'Đăng nhập',
-                  isLoading: auth.isLoading, // Đồng bộ trạng thái Loading từ Provider
-                  onPressed: _submit,
-                ),
-                const SizedBox(height: 16),
-
-                // Nút Đăng nhập bằng Google
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
-                    label: const Text('Đăng nhập bằng Google', style: TextStyle(fontSize: 16, color: Colors.black87)),
-                    onPressed: auth.isLoading ? null : () {
-                      context.read<AuthProvider>().signInWithGoogle(context);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Register link ──
-                Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
-                    child: RichText(
-                      text: TextSpan(
-                        text: 'Chưa có tài khoản? ',
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                        children: [
-                          TextSpan(text: 'Đăng ký ngay', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
+          // Dark-mode toggle floating over the hero.
+          Positioned(
+            top: 0, right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: _themeToggle(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _themeToggle() {
+    final isDark = ThemeController.instance.isDark;
+    return Material(
+      color: Colors.white.withValues(alpha: 0.2),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => ThemeController.instance.toggle(),
+        child: Container(
+          width: 42, height: 42,
+          alignment: Alignment.center,
+          child: Icon(
+            isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            color: Colors.white, size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _card(AuthProvider auth) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.edge),
+        boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.16), blurRadius: 50, offset: const Offset(0, 22))],
+      ),
+      padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AuthBadge(icon: Icons.waving_hand_rounded, text: 'Welcome back'),
+            const SizedBox(height: 13),
+            Text('Sign in', style: GoogleFonts.poppins(fontSize: 25, fontWeight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
+            const SizedBox(height: 3),
+            Text('Log in to keep your bike in top shape',
+                style: TextStyle(color: AppColors.faint, fontSize: 13.5, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 20),
+
+            const AuthLabel('Email'),
+            AuthField(
+              controller: _emailCtrl,
+              icon: Icons.mail_rounded,
+              hint: 'example@gmail.com',
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your username.' : null,
+            ),
+            const SizedBox(height: 15),
+
+            const AuthLabel('Password'),
+            AuthField(
+              controller: _passwordCtrl,
+              icon: Icons.lock_rounded,
+              hint: 'Enter your password',
+              obscure: _obscurePass,
+              onToggleObscure: () => setState(() => _obscurePass = !_obscurePass),
+              validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password.' : null,
+            ),
+            const SizedBox(height: 10),
+
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () {
+                  if (_emailCtrl.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email above before resetting your password')));
+                    return;
+                  }
+                  context.read<AuthProvider>().sendForgotPasswordEmail(context, _emailCtrl.text);
+                },
+                child: Text('Forgot password?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            AuthGradientButton(
+              label: 'Sign in',
+              trailingIcon: Icons.arrow_forward_rounded,
+              isLoading: auth.isLoading,
+              onTap: _submit,
+            ),
+            const SizedBox(height: 14),
+
+            const AuthOrDivider(),
+            const SizedBox(height: 14),
+
+            // Sign in with Google
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  side: BorderSide(color: AppColors.edge, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: auth.isLoading ? null : () => context.read<AuthProvider>().signInWithGoogle(context),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('G', style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF4285F4))),
+                    const SizedBox(width: 10),
+                    Text('Sign in with Google', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _signupLink() {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+      child: RichText(
+        text: TextSpan(
+          text: "Don't have an account?  ",
+          style: TextStyle(color: AppColors.faint, fontSize: 13.5, fontWeight: FontWeight.w500),
+          children: [
+            TextSpan(text: 'Sign up', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+          ],
         ),
       ),
     );

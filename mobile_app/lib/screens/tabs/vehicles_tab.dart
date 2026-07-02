@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../models/vehicle.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_text_field.dart';
@@ -14,7 +16,7 @@ class VehiclesTab extends StatefulWidget {
 }
 
 class _VehiclesTabState extends State<VehiclesTab> {
-  // THAY ĐỔI: Chuyển từ 1 xe sang 1 Danh sách xe
+  // CHANGE: from a single vehicle to a list of vehicles
   List<Vehicle> _vehicles = [];
   bool _isLoading = true;
   String? _error;
@@ -27,12 +29,12 @@ class _VehiclesTabState extends State<VehiclesTab> {
 
     try {
       final userId = context.read<AuthProvider>().mysqlUser?['userId'];
-      if (userId == null) throw Exception('Không tìm thấy thông tin đăng nhập.');
+      if (userId == null) throw Exception('Login info not found.');
 
       final response = await ApiClient.get('/vehicles/owner/$userId');
       final data = ApiClient.parseResponse(response);
 
-      // Nhận 1 mảng dữ liệu xe từ Backend
+      // Receive an array of vehicles from the backend
       if (data is List) {
         _vehicles = data.map((v) => Vehicle.fromJson(v as Map<String, dynamic>)).toList();
       } else {
@@ -45,7 +47,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
         _error = e.message;
       }
     } catch (e) {
-      _error = 'Lỗi hệ thống: $e';
+      _error = 'System error: $e';
     } finally {
       if (mounted) setState(() { _isLoading = false; });
     }
@@ -58,133 +60,160 @@ class _VehiclesTabState extends State<VehiclesTab> {
       backgroundColor: Colors.transparent,
       builder: (_) => _VehicleForm(
         existing: existing,
-        onSaved: () => _load(), // Cập nhật xong thì tải lại danh sách
+        onSaved: () => _load(), // Reload the list after saving
       ),
     );
   }
 
+  String _fmt(int n) =>
+      n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Hồ sơ xe máy'),
+        title: const Text('Vehicle profile'),
         centerTitle: true,
-        backgroundColor: scheme.surface,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(), // Bấm nút này là luôn mở form Thêm mới
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm xe'),
+      floatingActionButton: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(colors: [Color(0xFFFB923C), Color(0xFFF97316), Color(0xFFEA580C)]),
+          boxShadow: [BoxShadow(color: AppColors.primaryHover.withValues(alpha: 0.45), blurRadius: 18, offset: const Offset(0, 8))],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () => _openForm(),
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          highlightElevation: 0,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add vehicle', style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
       ),
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: _load,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(color: AppColors.primary))
             : _error != null
-            ? Center(child: Text(_error!, style: TextStyle(color: scheme.error)))
-            : _vehicles.isEmpty
-            ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.motorcycle_outlined, size: 72, color: scheme.outlineVariant),
-              const SizedBox(height: 16),
-              Text('Chưa có hồ sơ xe',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-              const SizedBox(height: 8),
-              Text('Nhấn nút bên dưới để thêm xe của bạn.',
-                  style: TextStyle(color: scheme.onSurfaceVariant)),
-            ],
-          ),
-        )
-        // HIỂN THỊ DANH SÁCH NHIỀU XE
-            : ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Cách đáy cho khỏi vướng nút Add
-          itemCount: _vehicles.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            final vehicle = _vehicles[index];
-            return _VehicleCard(
-              vehicle: vehicle,
-              onEdit: () => _openForm(existing: vehicle), // Truyền xe cũ vào để sửa
-            );
-          },
-        ),
+                ? Center(child: Text(_error!, style: TextStyle(color: AppColors.danger)))
+                : _vehicles.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          const SizedBox(height: 140),
+                          Icon(Icons.two_wheeler_rounded, size: 72, color: AppColors.edge),
+                          const SizedBox(height: 16),
+                          Text('No vehicle profile yet',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                          const SizedBox(height: 8),
+                          Text('Tap the button below to add your vehicle.',
+                              textAlign: TextAlign.center, style: TextStyle(color: AppColors.inkMuted)),
+                        ],
+                      )
+                    // SHOW THE LIST OF VEHICLES
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 110), // Bottom gap to clear the Add button
+                        itemCount: _vehicles.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final vehicle = _vehicles[index];
+                          return _VehicleCard(
+                            vehicle: vehicle,
+                            kmText: '${_fmt(vehicle.currentKm ?? 0)} km',
+                            onEdit: () => _openForm(existing: vehicle), // Pass the existing vehicle to edit
+                          );
+                        },
+                      ),
       ),
     );
   }
 }
 
-// ── Vehicle display card ──────────────────────────────────────────────────────
+// ── Vehicle display card (mockup) ─────────────────────────────────────────────
 
 class _VehicleCard extends StatelessWidget {
   final Vehicle vehicle;
-  final VoidCallback onEdit; // Thêm hàm lắng nghe sự kiện sửa
+  final String kmText;
+  final VoidCallback onEdit;
 
-  const _VehicleCard({required this.vehicle, required this.onEdit});
+  const _VehicleCard({required this.vehicle, required this.kmText, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: scheme.primaryContainer.withValues(alpha: 0.5), // Giảm màu nền xíu cho dịu
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)), // Thêm viền mờ
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.edge),
+        boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, 8))],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.motorcycle_rounded, size: 32, color: scheme.primary),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 54, height: 54,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [AppColors.primaryLight, AppColors.primaryMuted], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: AppColors.primaryMuted),
+                ),
+                child: Icon(Icons.two_wheeler_rounded, size: 30, color: AppColors.primaryHover),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(vehicle.vehicleName,
+                        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3)),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      _Chip(vehicle.brand),
+                      const SizedBox(width: 6),
+                      _Chip(vehicle.typeLabel),
+                    ]),
+                  ],
+                ),
+              ),
+              InkWell(
+                onTap: onEdit,
+                borderRadius: BorderRadius.circular(11),
+                child: Container(
+                  width: 34, height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldFill,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: AppColors.edge),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(vehicle.vehicleName,
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: scheme.onPrimaryContainer)),
-                      const SizedBox(height: 4),
-                      Row(children: [
-                        _Chip(vehicle.brand),
-                        const SizedBox(width: 6),
-                        _Chip(vehicle.typeLabel),
-                      ]),
-                    ],
-                  )),
-                  // Nút chỉnh sửa nằm góc trên bên phải của Thẻ
-                  IconButton(
-                    icon: Icon(Icons.edit_note_rounded, color: scheme.primary),
-                    onPressed: onEdit,
-                    tooltip: 'Chỉnh sửa xe',
-                  )
-                ]
-            ),
-            const SizedBox(height: 20),
-            _DetailRow(label: 'Hãng xe',     value: vehicle.brand),
-            _DetailRow(label: 'Dòng xe',     value: vehicle.typeLabel),
-            _DetailRow(label: 'Tên xe',      value: vehicle.vehicleName),
-            _DetailRow(label: 'Biển số xe',  value: vehicle.licensePlate, mono: true),
-            _DetailRow(label: 'Phân khối',   value: '${vehicle.engineCapacity ?? 0} cc'),
-            _DetailRow(label: 'Số Km đã đi', value: '${vehicle.currentKm ?? 0} km'),
-          ],
-        ),
+                  child: Icon(Icons.edit_rounded, size: 19, color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(height: 1, color: AppColors.edge),
+          const SizedBox(height: 16),
+          _DetailRow(label: 'License plate', value: vehicle.licensePlate, mono: true),
+          const SizedBox(height: 11),
+          _DetailRow(label: 'Engine', value: '${vehicle.engineCapacity ?? 0} cc'),
+          const SizedBox(height: 11),
+          _DetailRow(label: 'Odometer', value: kmText),
+        ],
       ),
     );
   }
@@ -195,14 +224,10 @@ class _Chip extends StatelessWidget {
   const _Chip(this.label);
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label, style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600)),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: TextStyle(fontSize: 10.5, color: AppColors.primaryDeep, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -215,23 +240,15 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(width: 90, child: Text(label, style: TextStyle(color: scheme.onPrimaryContainer.withValues(alpha: 0.7), fontSize: 13))),
-          Expanded(child: Text(value,
-            style: TextStyle(
-              color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w600,
-              fontFamily: mono ? 'monospace' : null,
-              fontSize: mono ? 16 : 14,
-              letterSpacing: mono ? 1.5 : 0,
-            ),
-          )),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: AppColors.faint, fontSize: 12.5, fontWeight: FontWeight.w500)),
+        mono
+            ? Text(value,
+                style: GoogleFonts.jetBrainsMono(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.ink, letterSpacing: 1))
+            : Text(value, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF44403C))),
+      ],
     );
   }
 }
@@ -259,10 +276,10 @@ class _VehicleFormState extends State<_VehicleForm> {
   bool   _isSaving    = false;
   String? _error;
 
-  static const _brands = ['Honda', 'Yamaha', 'Suzuki', 'SYM', 'Piaggio', 'Khác'];
+  static const _brands = ['Honda', 'Yamaha', 'Suzuki', 'SYM', 'Piaggio', 'Other'];
   static const _types  = [
-    {'value': 'XE_SO',     'label': 'Xe số'},
-    {'value': 'XE_TAY_GA', 'label': 'Xe tay ga'},
+    {'value': 'XE_SO',     'label': 'Manual'},
+    {'value': 'XE_TAY_GA', 'label': 'Scooter'},
   ];
 
   @override
@@ -295,7 +312,7 @@ class _VehicleFormState extends State<_VehicleForm> {
     try {
       final userId = context.read<AuthProvider>().mysqlUser?['userId'];
       final body = {
-        'id':             widget.existing?.id, // Gửi kèm ID nếu là đang sửa
+        'id':             widget.existing?.id, // Include the ID when editing
         'brand':          _brand,
         'vehicleType':    _vehicleType,
         'vehicleName':    _nameCtrl.text.trim(),
@@ -306,16 +323,16 @@ class _VehicleFormState extends State<_VehicleForm> {
 
       await ApiClient.put('/vehicles/owner/$userId', body);
 
-      widget.onSaved(); // Báo cho danh sách load lại
+      widget.onSaved(); // Tell the list to reload
       if (mounted) Navigator.pop(context);
     } on ApiException catch (e) {
-      // IN RA CONSOLE CỦA FLUTTER
-      print('=== LỖI TỪ BACKEND TRẢ VỀ: ${e.message} ===');
+      // PRINT TO THE FLUTTER CONSOLE
+      print('=== ERROR RETURNED FROM BACKEND: ${e.message} ===');
       setState(() { _error = e.message; });
     } catch (e) {
-      // IN RA CONSOLE CỦA FLUTTER
-      print('=== LỖI FLUTTER NỘI BỘ: $e ===');
-      setState(() { _error = 'Lưu thất bại: $e'; });
+      // PRINT TO THE FLUTTER CONSOLE
+      print('=== INTERNAL FLUTTER ERROR: $e ===');
+      setState(() { _error = 'Save failed: $e'; });
     } finally {
       if (mounted) setState(() { _isSaving = false; });
     }
@@ -342,20 +359,20 @@ class _VehicleFormState extends State<_VehicleForm> {
                 decoration: BoxDecoration(color: scheme.outlineVariant, borderRadius: BorderRadius.circular(2)),
               )),
               const SizedBox(height: 16),
-              Text(widget.existing == null ? 'Thêm xe máy' : 'Chỉnh sửa xe',
+              Text(widget.existing == null ? 'Add vehicle' : 'Edit vehicle',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
               const SizedBox(height: 16),
 
               Row(children: [
                 Expanded(child: _DropdownField(
-                  label: 'Hãng xe',
+                  label: 'Brand',
                   value: _brand,
-                  items: _brands.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+                  items: _brands.map((b) => DropdownMenuItem(value: b, child: Text(b == 'Khác' ? 'Other' : b))).toList(),
                   onChanged: (v) => setState(() => _brand = v!),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _DropdownField(
-                  label: 'Dòng xe',
+                  label: 'Type',
                   value: _vehicleType,
                   items: _types.map((t) => DropdownMenuItem(value: t['value'], child: Text(t['label']!))).toList(),
                   onChanged: (v) => setState(() => _vehicleType = v!),
@@ -364,32 +381,32 @@ class _VehicleFormState extends State<_VehicleForm> {
               const SizedBox(height: 12),
 
               AppTextField(
-                label: 'Tên xe', controller: _nameCtrl, hint: 'VD: Airblade, Exciter...',
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên xe.' : null,
+                label: 'Model name', controller: _nameCtrl, hint: 'e.g. Airblade, Exciter...',
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter the model name.' : null,
               ),
               const SizedBox(height: 12),
 
               AppTextField(
-                label: 'Biển số xe', controller: _licensePlateCtrl, hint: 'VD: 59X1-123.45',
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập biển số xe.' : null,
+                label: 'License plate', controller: _licensePlateCtrl, hint: 'e.g. 59X1-123.45',
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter the license plate.' : null,
               ),
               const SizedBox(height: 12),
 
               Row(children: [
                 Expanded(child: AppTextField(
-                  label: 'Phân khối', controller: _engineCapacityCtrl, keyboardType: TextInputType.number, hint: 'VD: 150',
+                  label: 'Engine (cc)', controller: _engineCapacityCtrl, keyboardType: TextInputType.number, hint: 'e.g. 150',
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Bắt buộc';
-                    if (int.tryParse(v) == null) return 'Phải là số';
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (int.tryParse(v) == null) return 'Must be a number';
                     return null;
                   },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: AppTextField(
-                  label: 'Số Km đi', controller: _currentKmCtrl, keyboardType: TextInputType.number, hint: 'VD: 15000',
+                  label: 'Odometer (km)', controller: _currentKmCtrl, keyboardType: TextInputType.number, hint: 'e.g. 15000',
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Bắt buộc';
-                    if (int.tryParse(v) == null) return 'Phải là số';
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (int.tryParse(v) == null) return 'Must be a number';
                     return null;
                   },
                 )),
@@ -401,7 +418,7 @@ class _VehicleFormState extends State<_VehicleForm> {
               ],
               const SizedBox(height: 20),
 
-              LoadingButton(label: 'Lưu hồ sơ xe', isLoading: _isSaving, onPressed: _save),
+              LoadingButton(label: 'Save vehicle', isLoading: _isSaving, onPressed: _save),
             ],
           ),
         ),
@@ -412,10 +429,16 @@ class _VehicleFormState extends State<_VehicleForm> {
 
 class _DropdownField<T> extends StatelessWidget {
   final String label;
-  final T value;
+  final T? value; 
   final List<DropdownMenuItem<T>> items;
   final void Function(T?) onChanged;
-  const _DropdownField({required this.label, required this.value, required this.items, required this.onChanged});
+
+  const _DropdownField({
+    required this.label, 
+    this.value, 
+    required this.items, 
+    required this.onChanged
+  });
 
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<T>(
@@ -428,5 +451,6 @@ class _DropdownField<T> extends StatelessWidget {
     isExpanded: true,
     items: items,
     onChanged: onChanged,
+    validator: (value) => value == null ? 'Vui lòng chọn $label' : null,
   );
 }

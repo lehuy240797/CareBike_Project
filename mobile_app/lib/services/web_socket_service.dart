@@ -2,68 +2,68 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import 'dart:async';
+import '../core/api_client.dart';
 
 class WebSocketService {
   static StompClient? _stompClient;
   static StompClient? _branchAppointmentStompClient;
   static final StreamController<Map<String, dynamic>> appointmentStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
-  /// Hàm khởi tạo kết nối và lắng nghe đơn hàng của khách
+  /// Function to initialize connection and listen for customer orders
   static void connectCustomer(int customerId, Function(Map<String, dynamic>) onStatusUpdated) {
-    // Nếu đang có kết nối cũ thì ngắt đi để tránh lặp (Memory leak)
+    // If there is an old connection, disconnect it to avoid loops (Memory leak)
     disconnect();
 
     _stompClient = StompClient(
       config: StompConfig(
-        // Dùng 10.0.2.2 cho máy ảo Android, nếu test máy thật phải dùng IP LAN (VD: 192.168.1.x)
-        url: 'ws://192.168.100.78:8080/ws',
+        url: 'ws://${ApiClient.serverIp}:8080/ws',
         onConnect: (StompFrame frame) {
-          debugPrint('Đã kết nối WebSocket (Khách hàng ID: $customerId)');
+          debugPrint('Connected to WebSocket (Customer ID: $customerId)');
 
-          // Lắng nghe đúng kênh của Khách hàng này
+          // Listen to the correct channel of this Customer
           _stompClient?.subscribe(
             destination: '/topic/customers/$customerId/appointments',
             callback: (StompFrame frame) {
               if (frame.body != null) {
                 final Map<String, dynamic> updatedData = jsonDecode(frame.body!);
-                // Gọi hàm callback để truyền data ra ngoài giao diện chính (Hiển thị SnackBar)
+                // Call callback function to pass data out to main UI (Show SnackBar)
                 onStatusUpdated(updatedData);
-                // Phát tín hiệu ra Stream để màn hình danh sách (CustomerAppointmentScreen) tự động reload
+                // Send signal to Stream so list screen (CustomerAppointmentScreen) automatically reloads
                 appointmentStreamController.add(updatedData);
               }
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS: $error'),
-        reconnectDelay: const Duration(seconds: 5), // Tự động kết nối lại nếu rớt mạng
+        onWebSocketError: (dynamic error) => debugPrint('WS Error: $error'),
+        reconnectDelay: const Duration(seconds: 5), // Auto reconnect if disconnected
       ),
     );
 
     _stompClient?.activate();
   }
 
-  /// Hàm lắng nghe ca CỨU HỘ dành riêng cho Chi nhánh
+  /// Function to listen for RESCUE cases specifically for Branch
   static void connectBranch(int branchId, Function(Map<String, dynamic>) onRescueReceived) {
-    disconnect(); // Ngắt kết nối cũ nếu có
+    disconnect(); // Disconnect old connection if any
 
     _stompClient = StompClient(
       config: StompConfig(
-        url: 'ws://192.168.100.78:8080/ws', // Nhớ đổi thành IP LAN nếu test máy thật
+        url: 'ws://${ApiClient.serverIp}:8080/ws',
         onConnect: (StompFrame frame) {
-          debugPrint('📡 Đã bật Radar Cứu hộ (Chi nhánh ID: $branchId)');
+          debugPrint('📡 Rescue Radar turned on (Branch ID: $branchId)');
 
-          // Lắng nghe kênh Cứu hộ của chi nhánh này (Giống y hệt bên React)
+          // Listen to the Rescue channel of this branch (Exactly the same as React)
           _stompClient?.subscribe(
             destination: '/topic/branches/$branchId/rescues',
             callback: (StompFrame frame) {
               if (frame.body != null) {
                 final Map<String, dynamic> newRescue = jsonDecode(frame.body!);
-                onRescueReceived(newRescue); // Bắn dữ liệu ra giao diện
+                onRescueReceived(newRescue); // Fire data to UI
               }
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS Branch: $error'),
+        onWebSocketError: (dynamic error) => debugPrint('WS Branch Error: $error'),
         reconnectDelay: const Duration(seconds: 5),
       ),
     );
@@ -71,7 +71,7 @@ class WebSocketService {
     _stompClient?.activate();
   }
 
-  /// Hàm lắng nghe LỊCH HẸN BẢO DƯỠNG dành riêng cho Chi nhánh
+  /// Function to listen for MAINTENANCE APPOINTMENTS specifically for Branch
   static void connectBranchAppointments(int branchId, Function(Map<String, dynamic>) onAppointmentReceived) {
     if (_branchAppointmentStompClient != null && _branchAppointmentStompClient!.connected) {
       _branchAppointmentStompClient?.deactivate();
@@ -79,9 +79,9 @@ class WebSocketService {
 
     _branchAppointmentStompClient = StompClient(
       config: StompConfig(
-        url: 'ws://192.168.100.78:8080/ws',
+        url: 'ws://${ApiClient.serverIp}:8080/ws',
         onConnect: (StompFrame frame) {
-          debugPrint('📡 Đã bật Lắng nghe Lịch Hẹn (Chi nhánh ID: $branchId)');
+          debugPrint('📡 Listening to Appointments (Branch ID: $branchId)');
           _branchAppointmentStompClient?.subscribe(
             destination: '/topic/branches/$branchId/appointments',
             callback: (StompFrame frame) {
@@ -92,7 +92,7 @@ class WebSocketService {
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Lỗi WS Branch Appointments: $error'),
+        onWebSocketError: (dynamic error) => debugPrint('WS Branch Appointments Error: $error'),
         reconnectDelay: const Duration(seconds: 5),
       ),
     );
@@ -103,11 +103,11 @@ class WebSocketService {
   static void disconnect() {
     if (_stompClient != null && _stompClient!.connected) {
       _stompClient?.deactivate();
-      debugPrint('Đã ngắt kết nối WebSocket (Customer/Rescue).');
+      debugPrint('Disconnected WebSocket (Customer/Rescue).');
     }
     if (_branchAppointmentStompClient != null && _branchAppointmentStompClient!.connected) {
       _branchAppointmentStompClient?.deactivate();
-      debugPrint('Đã ngắt kết nối WebSocket (Branch Appointments).');
+      debugPrint('Disconnected WebSocket (Branch Appointments).');
     }
   }
 }

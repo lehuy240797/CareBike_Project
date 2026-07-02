@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Quản trị viên',
-  BRANCH: 'Chi nhánh',
+  ADMIN: 'Administrator',
+  BRANCH: 'Branch',
 };
 
 const Navbar = () => {
@@ -25,9 +25,9 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="app-navbar" role="navigation" aria-label="Thanh điều hướng chính">
+    <nav className="app-navbar" role="navigation" aria-label="Main Navigation">
       {/* Brand */}
-      <Link to="/" className="app-navbar-brand" aria-label="Về trang chủ CareBike">
+      <Link to="/" className="app-navbar-brand" aria-label="Go to CareBike Home">
         <span className="app-navbar-brand-icon" aria-hidden="true">
           <Bike size={20} strokeWidth={2.5} />
         </span>
@@ -69,7 +69,7 @@ const Navbar = () => {
                 role="menuitem"
                 onClick={() => setDropdownOpen(false)}
               >
-                Đổi mật khẩu
+                Change Password
               </Link>
               <div className="app-navbar-dropdown-divider" />
               <button
@@ -82,7 +82,7 @@ const Navbar = () => {
                 }}
               >
                 <LogOut size={14} aria-hidden="true" />
-                Đăng xuất
+                Log out
               </button>
             </div>
           )}

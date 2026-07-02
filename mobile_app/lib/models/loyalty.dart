@@ -17,10 +17,10 @@ class LoyaltyProfile {
 
   String get tierLabel {
     switch (memberTier) {
-      case 'SILVER':   return '🥈 Bạc';
-      case 'GOLD':     return '🥇 Vàng';
-      case 'PLATINUM': return '💎 Bạch kim';
-      default:         return '⭐ Tiêu chuẩn';
+      case 'SILVER':   return '🥈 Silver';
+      case 'GOLD':     return '🥇 Gold';
+      case 'PLATINUM': return '💎 Platinum';
+      default:         return '⭐ Standard';
     }
   }
 

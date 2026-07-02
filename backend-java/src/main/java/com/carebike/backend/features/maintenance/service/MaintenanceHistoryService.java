@@ -8,9 +8,11 @@ import com.carebike.backend.features.customer.service.LoyaltyService;
 import com.carebike.backend.features.maintenance.dto.MaintenanceHistoryRequest;
 import com.carebike.backend.features.maintenance.entity.MaintenanceHistory;
 import com.carebike.backend.features.maintenance.repository.MaintenanceHistoryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,30 +25,33 @@ public class MaintenanceHistoryService {
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
     private final LoyaltyService loyaltyService;
-    private final SimpMessagingTemplate messagingTemplate;
 
+    // Không dùng final
+    private SimpMessagingTemplate messagingTemplate;
+
+    // Bỏ messagingTemplate ra khỏi Constructor
     public MaintenanceHistoryService(
             MaintenanceHistoryRepository maintenanceRepository,
             UserRepository userRepository,
             BranchRepository branchRepository,
-            LoyaltyService loyaltyService,
-            SimpMessagingTemplate messagingTemplate) {
+            LoyaltyService loyaltyService) {
         this.maintenanceRepository = maintenanceRepository;
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
         this.loyaltyService = loyaltyService;
+    }
+
+    // Tiêm an toàn
+    @Autowired(required = false)
+    @Lazy
+    public void setMessagingTemplate(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
 
-    /** Get all maintenance records for a customer, newest first */
     public List<MaintenanceHistory> getByCustomerId(Integer customerId) {
         return maintenanceRepository.findByCustomerIdOrderByServiceDateDesc(customerId);
     }
 
-    /**
-     * Create a new maintenance record AND automatically update loyalty profile.
-     * Wrapped in @Transactional — if loyalty update fails, the whole operation rolls back.
-     */
     @Transactional
     public MaintenanceHistory create(MaintenanceHistoryRequest request) {
         User customer = userRepository.findById(request.getCustomerId())
@@ -67,23 +72,19 @@ public class MaintenanceHistoryService {
 
         MaintenanceHistory saved = maintenanceRepository.save(record);
 
-        // ── Loyalty trigger ───────────────────────────────────────────────────
-        // After saving the invoice, auto-update points + tier for the customer.
         if (request.getTotalCost() != null) {
             loyaltyService.addSpending(customer, request.getTotalCost());
         }
 
-        // ====================================================================
-        // BẮN TÍN HIỆU REAL-TIME CHO KHÁCH HÀNG SAU KHI SỬA XE XONG
-        // ====================================================================
-        String customerDestination = "/topic/customers/" + customer.getId() + "/appointments";
-        
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("status", "COMPLETED"); 
-        notification.put("message", "Xe của bạn đã được bảo dưỡng xong!");
+        // Kiểm tra null để tránh sập server nếu WebSocket chết
+        if (messagingTemplate != null) {
+            String customerDestination = "/topic/customers/" + customer.getId() + "/appointments";
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("status", "COMPLETED");
+            notification.put("message", "Xe của bạn đã được bảo dưỡng xong!");
 
-        // ÉP KIỂU (Object) TẠI ĐÂY ĐỂ TRÁNH LỖI AMBIGUOUS CỦA JAVA
-        messagingTemplate.convertAndSend(customerDestination, (Object) notification);
+            messagingTemplate.convertAndSend(customerDestination, (Object) notification);
+        }
 
         return saved;
     }

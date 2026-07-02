@@ -6,6 +6,7 @@
 import { AlertTriangle } from 'lucide-react';
 import ModalOverlay from './ModalOverlay';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { btnOutline, btnPrimary, btnDanger } from '../../ui/styles';
 
 interface ConfirmModalProps {
   title: string;
@@ -21,34 +22,33 @@ interface ConfirmModalProps {
 const ConfirmModal = ({
   title,
   message,
-  confirmLabel = 'Xác nhận',
-  cancelLabel = 'Hủy',
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   isDestructive = false,
   isLoading = false,
   onConfirm,
   onClose,
 }: ConfirmModalProps) => {
   return (
-    <ModalOverlay title={title} onClose={onClose} contentClass="modal-content--sm">
-      <div className="confirm-modal-body">
-        <div className={`confirm-icon-wrap ${isDestructive ? 'confirm-icon-wrap--danger' : 'confirm-icon-wrap--warning'}`}>
+    <ModalOverlay title={title} onClose={onClose} contentClass="max-w-[400px]">
+      <div className="flex flex-col items-center gap-4 px-0 pb-4 pt-2 text-center">
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-full ${
+            isDestructive ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'
+          }`}
+        >
           <AlertTriangle size={28} aria-hidden="true" />
         </div>
-        <p className="confirm-message">{message}</p>
+        <p className="m-0 max-w-[30ch] text-[0.9375rem] leading-relaxed text-ink">{message}</p>
       </div>
 
-      <div className="modal-footer">
-        <button
-          type="button"
-          className="app-btn app-btn--outline"
-          onClick={onClose}
-          disabled={isLoading}
-        >
+      <div className="mt-2 flex items-center justify-end gap-2.5 border-t border-edge pt-5">
+        <button type="button" className={btnOutline} onClick={onClose} disabled={isLoading}>
           {cancelLabel}
         </button>
         <button
           type="button"
-          className={`app-btn ${isDestructive ? 'app-btn--danger' : ''}`}
+          className={isDestructive ? btnDanger : btnPrimary}
           onClick={onConfirm}
           disabled={isLoading}
           aria-busy={isLoading}
@@ -56,7 +56,7 @@ const ConfirmModal = ({
           {isLoading ? (
             <>
               <LoadingSpinner size={15} color="#fff" />
-              Đang xử lý...
+              Processing...
             </>
           ) : (
             confirmLabel

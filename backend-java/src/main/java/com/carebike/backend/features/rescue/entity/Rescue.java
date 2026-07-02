@@ -46,6 +46,30 @@ public class Rescue {
     // Trạng thái: PENDING (Chờ nhận), ACCEPTED (Đã nhận), COMPLETED (Xong), CANCELLED (Hủy)
     private String status;
 
+    // Mã nhân viên thực hiện sửa chữa (CBS-xxxx)
+    @Column(name = "staff_code", length = 20)
+    private String staffCode;
+
+    // Hệ số giá theo khung giờ (x1 ban ngày, x2 ban đêm)
+    @Column(name = "time_multiplier")
+    private Double timeMultiplier;
+
+    // Khoảng cách chi nhánh - khách hàng (km, Haversine)
+    @Column(name = "distance_km")
+    private Double distanceKm;
+
+    // Phí vận chuyển xe (nếu có)
+    @Column(name = "transport_fee")
+    private java.math.BigDecimal transportFee;
+
+    // Tổng tiền thanh toán của hóa đơn
+    @Column(name = "total_cost")
+    private java.math.BigDecimal totalCost;
+
+    // Chi tiết hóa đơn (text)
+    @Column(name = "invoice_details", columnDefinition = "TEXT")
+    private String invoiceDetails;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

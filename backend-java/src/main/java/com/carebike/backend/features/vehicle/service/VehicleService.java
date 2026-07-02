@@ -58,4 +58,16 @@ public class VehicleService {
     public Optional<Vehicle> getByLicensePlate(String licensePlate) {
         return vehicleRepository.findByLicensePlate(licensePlate);
     }
+
+    /** 4. Xóa xe */
+    public void deleteVehicle(Integer vehicleId) {
+        if (!vehicleRepository.existsById(vehicleId)) {
+            throw new RuntimeException("Không tìm thấy xe để xóa.");
+        }
+        try {
+            vehicleRepository.deleteById(vehicleId);
+        } catch (Exception e) {
+            throw new RuntimeException("Không thể xóa xe này vì nó đã được sử dụng trong lịch hẹn hoặc hóa đơn cứu hộ.");
+        }
+    }
 }

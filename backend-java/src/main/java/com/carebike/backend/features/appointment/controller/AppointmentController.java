@@ -57,7 +57,10 @@ public class AppointmentController {
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('BRANCH', 'ADMIN')")
     public ResponseEntity<List<Appointment>> getByBranchAndStatus(
             @PathVariable Integer branchId,
-            @RequestParam String status) {
+            @RequestParam(required = false) String status) {
+        if (status == null || status.isEmpty()) {
+            return ResponseEntity.ok(appointmentService.getByBranchId(branchId));
+        }
         return ResponseEntity.ok(appointmentService.getByBranchIdAndStatus(branchId, status));
     }
 

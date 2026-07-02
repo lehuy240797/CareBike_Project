@@ -14,6 +14,7 @@ import ModalOverlay from './ModalOverlay';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { getVehicleByOwner } from '../../services/vehicleService';
 import type { VehicleRecord } from '../../types/api';
+import { badgeBase, btnOutline, formHint, modalFooter } from '../../ui/styles';
 
 interface VehicleModalProps {
   customerId: number;
@@ -22,8 +23,8 @@ interface VehicleModalProps {
 }
 
 const VEHICLE_TYPES: Record<string, string> = {
-  XE_SO: 'Xe số',
-  XE_TAY_GA: 'Xe tay ga',
+  XE_SO: 'Manual',
+  XE_TAY_GA: 'Scooter',
 };
 
 const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) => {
@@ -45,7 +46,7 @@ const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) 
         if (status === 404) {
           setNotFound(true);
         } else {
-          setError('Không thể tải hồ sơ xe. Vui lòng thử lại.');
+          setError('Could not load the vehicle profile. Please try again.');
         }
       } finally {
         setIsLoading(false);
@@ -58,33 +59,33 @@ const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) 
 
   return (
     <ModalOverlay
-      title={`Hồ sơ xe máy — ${customerName}`}
+      title={`Vehicle profile — ${customerName}`}
       onClose={onClose}
-      contentClass="modal-content--md"
+      contentClass="max-w-[560px]"
     >
       {/* ── Loading ──────────────────────────────────────────────────── */}
       {isLoading && (
-        <div className="modal-loading">
+        <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-[0.9375rem] text-ink-muted">
           <LoadingSpinner size={32} color="var(--color-primary)" />
-          <p>Đang tải hồ sơ xe...</p>
+          <p className="m-0">Loading vehicle profile...</p>
         </div>
       )}
 
       {/* ── Network error ─────────────────────────────────────────────── */}
       {!isLoading && error && (
-        <div className="modal-error-state">
+        <div className="flex flex-col items-center gap-3.5 px-4 py-10 text-center text-red-600">
           <AlertCircle size={40} aria-hidden="true" />
-          <p>{error}</p>
+          <p className="m-0 text-[0.9375rem]">{error}</p>
         </div>
       )}
 
       {/* ── Not found: customer hasn't updated via mobile ──────────────── */}
       {!isLoading && notFound && (
-        <div className="modal-empty-state">
-          <Smartphone size={52} strokeWidth={1.2} aria-hidden="true" style={{ color: 'var(--color-primary)', opacity: 0.6 }} />
-          <p style={{ fontWeight: 600 }}>Chưa có hồ sơ xe</p>
-          <p style={{ fontSize: '0.875rem', maxWidth: '28ch', textAlign: 'center' }}>
-            Khách hàng này chưa cập nhật hồ sơ xe máy trên ứng dụng di động.
+        <div className="flex flex-col items-center gap-3.5 px-4 py-10 text-center text-ink-muted">
+          <Smartphone size={52} strokeWidth={1.2} aria-hidden="true" className="text-primary opacity-60" />
+          <p className="m-0 font-semibold">No vehicle profile</p>
+          <p className="m-0 max-w-[28ch] text-center text-sm">
+            This customer has not added a vehicle profile in the mobile app yet.
           </p>
         </div>
       )}
@@ -93,46 +94,46 @@ const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) 
       {!isLoading && vehicle && (
         <>
           {/* Hero row */}
-          <div className="vehicle-profile-grid">
-            <div className="vehicle-icon-col" aria-hidden="true">
-              <Bike size={64} strokeWidth={1} className="vehicle-big-icon" />
+          <div className="mb-4 flex items-center gap-6 border-b border-edge pb-5 pt-4">
+            <div className="shrink-0 text-primary opacity-65" aria-hidden="true">
+              <Bike size={64} strokeWidth={1} className="block" />
             </div>
-            <div className="vehicle-info-col">
-              <div className="vehicle-model-name">{vehicle.vehicleName}</div>
-              <div className="vehicle-brand-row">
-                <span className="badge badge--neutral">{vehicle.brand}</span>
-                <span className="badge badge--neutral">{typeLabel(vehicle.vehicleType)}</span>
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 break-words text-[1.375rem] font-bold tracking-tight text-ink">{vehicle.vehicleName}</div>
+              <div className="flex flex-wrap gap-2">
+                <span className={`${badgeBase} bg-stone-100 text-ink-muted`}>{vehicle.brand}</span>
+                <span className={`${badgeBase} bg-stone-100 text-ink-muted`}>{typeLabel(vehicle.vehicleType)}</span>
               </div>
             </div>
           </div>
 
           {/* Detail table */}
-          <div className="detail-list">
+          <div className="flex flex-col overflow-hidden rounded-[14px] border border-edge">
             {[
-              { label: 'Hãng xe',   value: vehicle.brand },
-              { label: 'Dòng xe',   value: typeLabel(vehicle.vehicleType) },
-              { label: 'Tên xe',    value: vehicle.vehicleName },
-              { label: 'Số khung',  value: vehicle.chassisNumber || '—', mono: true },
-              { label: 'Số máy',    value: vehicle.engineNumber  || '—', mono: true },
+              { label: 'Brand',          value: vehicle.brand },
+              { label: 'Type',           value: typeLabel(vehicle.vehicleType) },
+              { label: 'Model name',     value: vehicle.vehicleName },
+              { label: 'Chassis number', value: vehicle.chassisNumber || '—', mono: true },
+              { label: 'Engine number',  value: vehicle.engineNumber  || '—', mono: true },
             ].map(({ label, value, mono }) => (
-              <div key={label} className="detail-row">
-                <span className="detail-label">{label}</span>
-                <span className={`detail-value${mono ? ' detail-value--mono' : ''}`}>{value}</span>
+              <div key={label} className="flex items-center gap-4 border-b border-edge px-4 py-3 last:border-b-0 even:bg-stone-50">
+                <span className="min-w-[9rem] shrink-0 text-sm font-semibold text-ink-muted">{label}</span>
+                <span className={`break-all text-[0.9375rem] text-ink${mono ? ' font-mono text-sm tracking-wide text-stone-700' : ''}`}>{value}</span>
               </div>
             ))}
           </div>
 
-          <p className="form-hint" style={{ marginTop: '0.75rem' }}>
-            🔒 Hồ sơ xe chỉ có thể được cập nhật bởi khách hàng qua ứng dụng di động.
+          <p className={`${formHint} mt-3`}>
+            🔒 The vehicle profile can only be updated by the customer via the mobile app.
           </p>
         </>
       )}
 
       {/* Footer */}
       {!isLoading && (
-        <div className="modal-footer" style={{ marginTop: '1rem' }}>
-          <button type="button" className="app-btn app-btn--outline" onClick={onClose}>
-            Đóng
+        <div className={modalFooter}>
+          <button type="button" className={btnOutline} onClick={onClose}>
+            Close
           </button>
         </div>
       )}

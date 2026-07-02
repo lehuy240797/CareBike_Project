@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CareBike needs camera access to scan your tire or brake pad for inspection.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CareBike needs photo access so you can upload a photo of your tire or brake pad.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

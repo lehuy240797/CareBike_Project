@@ -26,7 +26,7 @@ class MaintenanceRecord {
 
   String get formattedCost {
     if (totalCost == null) return '—';
-    return '${totalCost!.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')} ₫';
+    return '${totalCost!.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')} VND';
   }
 
   String get formattedDate {

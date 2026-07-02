@@ -9,11 +9,11 @@ import '../providers/auth_provider.dart';
 class RescueBottomSheet extends StatefulWidget {
   const RescueBottomSheet({super.key});
 
-  // Hàm tĩnh giúp gọi BottomSheet này ở bất kỳ đâu chỉ với 1 dòng code
+  // Static helper to open this BottomSheet anywhere in a single line
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Cho phép BottomSheet trượt cao lên khi mở bàn phím
+      isScrollControlled: true, // Let the sheet rise when the keyboard opens
       backgroundColor: Colors.transparent,
       builder: (_) => const RescueBottomSheet(),
     );
@@ -35,10 +35,10 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
   double? _lng;
 
   final List<String> _issues = [
-    'Thủng lốp / Xịt lốp',
-    'Hết ắc quy',
-    'Đứt xích / Curoa',
-    'Chết máy không rõ nguyên nhân'
+    'Flat / punctured tire',
+    'Dead battery',
+    'Broken chain / belt',
+    'Engine died for no clear reason'
   ];
   String _selectedIssue = '';
   final _otherIssueCtrl = TextEditingController();
@@ -56,23 +56,23 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
   }
 
   Future<void> _fetchInitialData() async {
-    // Chạy song song 2 luồng: Định vị GPS và Tải danh sách xe để tiết kiệm thời gian
+    // Run both in parallel: GPS location and loading the vehicle list to save time
     await Future.wait([
       _getLocationSafe(),
       _loadMyVehicles(),
     ]);
   }
 
-  // ── LOGIC LẤY GPS SIÊU AN TOÀN (KẾT THỪA TỪ MAP) ──
+  // ── SUPER-SAFE GPS LOGIC (reused from the map) ──
   Future<void> _getLocationSafe() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) throw Exception('GPS tắt');
+      if (!serviceEnabled) throw Exception('GPS off');
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) throw Exception('Từ chối quyền');
+        if (permission == LocationPermission.denied) throw Exception('Permission denied');
       }
 
       late LocationSettings locationSettings;
@@ -80,7 +80,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
         locationSettings = AndroidSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: const Duration(seconds: 5),
-          forceLocationManager: true, // Ép lấy GPS vượt rào máy ảo
+          forceLocationManager: true, // Force GPS through the emulator
         );
       } else {
         locationSettings = const LocationSettings(
@@ -90,13 +90,13 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
       }
 
       Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high, // Độ chính xác cao
-        timeLimit: const Duration(seconds: 5), // Timeout 5s
+        desiredAccuracy: LocationAccuracy.high, // High accuracy
+        timeLimit: const Duration(seconds: 5), // 5s timeout
       );
       _lat = pos.latitude;
       _lng = pos.longitude;
     } catch (e) {
-      // Nếu không lấy được GPS, lấy vị trí cũ hoặc để null (sẽ cảnh báo lúc gửi)
+      // If GPS fails, use the last known position or leave null (warned on submit)
       try {
         Position? lastPos = await Geolocator.getLastKnownPosition();
         if (lastPos != null) {
@@ -109,37 +109,37 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
     }
   }
 
-  // ── LOGIC TẢI DANH SÁCH XE CỦA KHÁCH ──
+  // ── LOAD THE CUSTOMER'S VEHICLE LIST ──
   Future<void> _loadMyVehicles() async {
-    // 1. Lấy user từ Provider
+    // 1. Get the user from the Provider
     final user = context.read<AuthProvider>().mysqlUser;
 
-    // Thử lấy 'userId', nếu không có thì thử lấy 'id' (Rất hay sai ở chỗ này)
+    // Try 'userId', fall back to 'id' (a common mistake here)
     final userId = user?['userId'] ?? user?['id'];
 
     if (userId == null) {
-      if (kDebugMode) print('🚨 LỖI: Không lấy được ID khách hàng từ AuthProvider');
+      if (kDebugMode) print('🚨 ERROR: Could not get the customer ID from AuthProvider');
       if (mounted) setState(() => _isLoadingVehicles = false);
       return;
     }
 
-    if (kDebugMode) print('▶️ Đang tải danh sách xe cho Customer ID: $userId');
+    if (kDebugMode) print('▶️ Loading vehicles for Customer ID: $userId');
 
     try {
-      // 2. Gọi API
+      // 2. Call the API
       final res = await ApiClient.get('/vehicles/owner/$userId');
 
-      if (kDebugMode) print('✅ API Trả về: ${res.body}'); // In ra màn hình console để xem cấu trúc thật
+      if (kDebugMode) print('✅ API returned: ${res.body}'); // Print to console to inspect the real structure
 
       final data = ApiClient.parseResponse(res);
 
       if (mounted) {
         setState(() {
-          // 3. Xử lý linh hoạt mọi cấu trúc JSON từ Backend
+          // 3. Handle any JSON structure from the backend
           if (data is List) {
-            _myVehicles = data; // Nếu backend trả về thẳng mảng
+            _myVehicles = data; // If the backend returns a plain array
           } else if (data is Map) {
-            // Nếu backend bọc trong object (Ví dụ: ApiResponse)
+            // If the backend wraps it in an object (e.g. ApiResponse)
             if (data.containsKey('data')) {
               _myVehicles = data['data'] ?? [];
             } else if (data.containsKey('content')) {
@@ -147,31 +147,31 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
             }
           }
 
-          // 4. Set giá trị mặc định nếu có xe
+          // 4. Set a default value if there are vehicles
           if (_myVehicles.isNotEmpty) {
             _selectedVehicle = _myVehicles.first;
           }
         });
       }
     } catch (e) {
-      if (kDebugMode) print('🚨 LỖI KHI GỌI API XE: $e'); // Báo lỗi đỏ chót ra console nếu sai API
+      if (kDebugMode) print('🚨 ERROR CALLING VEHICLES API: $e'); // Bright red console error if the API fails
     } finally {
       if (mounted) setState(() => _isLoadingVehicles = false);
     }
   }
 
-  // ── LOGIC GỬI YÊU CẦU CỨU HỘ ──
+  // ── SUBMIT THE RESCUE REQUEST ──
   Future<void> _submitRescue() async {
     if (_selectedVehicle == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn chiếc xe đang hỏng.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select the vehicle that broke down.')));
       return;
     }
     if (_selectedIssue.isEmpty && _otherIssueCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn hoặc nhập tình trạng xe.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please pick or enter the vehicle issue.')));
       return;
     }
     if (_lat == null || _lng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể lấy tọa độ. Vui lòng bật GPS và thử lại.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not get coordinates. Please enable GPS and try again.')));
       return;
     }
 
@@ -181,7 +181,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
     final finalIssue = _selectedIssue.isNotEmpty ? _selectedIssue : _otherIssueCtrl.text.trim();
 
     try {
-      // Gọi API POST yêu cầu cứu hộ xuống Backend
+      // POST the rescue request to the backend
       await ApiClient.post('/rescues', {
         'customerId': userId,
         'vehicleId': _selectedVehicle['id'],
@@ -191,17 +191,17 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
       });
 
       if (!mounted) return;
-      Navigator.pop(context); // Đóng form
+      Navigator.pop(context); // Close the form
 
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Đã gửi yêu cầu! Hệ thống đang tìm chi nhánh gần nhất...'),
+            content: const Text('Request sent! Finding the nearest branch...'),
             backgroundColor: Colors.green.shade700,
             duration: const Duration(seconds: 4),
           )
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi gửi yêu cầu. Vui lòng thử lại.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to send the request. Please try again.')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -214,7 +214,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
     return Container(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20, // Tự đẩy lên khi bật bàn phím
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20, // Rise when the keyboard opens
       ),
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -225,7 +225,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thanh gạt (Drag handle)
+            // Drag handle
             Center(
               child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
             ),
@@ -235,13 +235,13 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               children: [
                 Icon(Icons.support_agent, color: Colors.red.shade500, size: 28),
                 const SizedBox(width: 8),
-                const Text('Cứu hộ khẩn cấp 24/7', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text('Emergency Rescue 24/7', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 20),
 
-            // 1. CHỌN XE ĐANG HỎNG
-            Text('Xe nào đang gặp sự cố?', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
+            // 1. SELECT THE BROKEN-DOWN VEHICLE
+            Text('Which vehicle has a problem?', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
             const SizedBox(height: 8),
             if (_isLoadingVehicles)
               const Center(child: CircularProgressIndicator())
@@ -249,7 +249,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                child: const Text('Bạn chưa thêm xe nào vào hệ thống. Vui lòng thêm xe ở mục "Xe của tôi" trước.', style: TextStyle(color: Colors.red)),
+                child: const Text('You have not added any vehicle yet. Please add one under "My Vehicles" first.', style: TextStyle(color: Colors.red)),
               )
             else
               Container(
@@ -259,10 +259,10 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
                   child: DropdownButton<dynamic>(
                     value: _selectedVehicle,
                     isExpanded: true,
-                    hint: const Text('Chọn xe...'),
+                    hint: const Text('Select a vehicle...'),
                     items: _myVehicles.map((v) => DropdownMenuItem(
                       value: v,
-                      child: Text('${v['brand']} ${v['model']} - Biển số: ${v['licensePlate']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                      child: Text('${v['brand']} ${v['model']} - Plate: ${v['licensePlate']}', style: const TextStyle(fontWeight: FontWeight.w500)),
                     )).toList(),
                     onChanged: (val) => setState(() => _selectedVehicle = val),
                   ),
@@ -270,8 +270,8 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               ),
             const SizedBox(height: 20),
 
-            // 2. TÌNH TRẠNG SỰ CỐ
-            Text('Tình trạng xe hiện tại:', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
+            // 2. ISSUE DETAILS
+            Text('Current vehicle condition:', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8, runSpacing: 8,
@@ -293,7 +293,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
             TextField(
               controller: _otherIssueCtrl,
               decoration: InputDecoration(
-                hintText: 'Nhập vấn đề khác (nếu có)...',
+                hintText: 'Enter another issue (if any)...',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
@@ -303,7 +303,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
             ),
             const SizedBox(height: 20),
 
-            // 3. TRẠNG THÁI GPS
+            // 3. GPS STATUS
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(10)),
@@ -317,17 +317,17 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _isLocating
-                        ? const Text('Đang định vị vị trí của bạn...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                        ? const Text('Locating your position...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
                         : (_lat != null
-                        ? const Text('Đã ghi nhận tọa độ của bạn để đội cứu hộ tìm kiếm.', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))
-                        : const Text('Lỗi GPS! Vui lòng bật vị trí.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500))),
+                        ? const Text('Your coordinates were recorded for the rescue team.', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))
+                        : const Text('GPS error! Please enable location.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500))),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
-            // NÚT GỌI CỨU HỘ
+            // CALL-RESCUE BUTTON
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -341,7 +341,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
                 ),
                 child: _isSubmitting
                     ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('GỌI CỨU HỘ NGAY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    : const Text('CALL RESCUE NOW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
             ),
           ],

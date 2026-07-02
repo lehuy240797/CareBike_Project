@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Thêm Provider
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../models/maintenance.dart';
-import '../../providers/auth_provider.dart'; // Lấy ID trực tiếp từ Auth
+import '../../providers/auth_provider.dart'; // Get ID directly from Auth
+import '../../widgets/invoice_widget.dart';
 
 class HistoryTab extends StatefulWidget {
   const HistoryTab({super.key});
@@ -20,13 +23,13 @@ class _HistoryTabState extends State<HistoryTab> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    // Bật vòng xoay ngay lập tức khi bắt đầu
+    // Show the spinner immediately
     setState(() { _isLoading = true; _error = null; });
 
     try {
-      // Lấy trực tiếp từ Provider để không bị lỗi mất Context/Delay
+      // Read straight from the Provider to avoid context/delay issues
       final userId = context.read<AuthProvider>().mysqlUser?['userId'];
-      if (userId == null) throw Exception('Chưa đăng nhập.');
+      if (userId == null) throw Exception('Not signed in.');
 
       final response = await ApiClient.get('/maintenance/customer/$userId');
       final data = ApiClient.parseResponse(response);
@@ -37,73 +40,107 @@ class _HistoryTabState extends State<HistoryTab> {
         _records = [];
       }
     } on ApiException catch (e) {
-      // Bắt chính xác lỗi 404 (Không tìm thấy lịch sử -> Khách mới)
+      // Catch 404 (no history -> new customer)
       if (e.statusCode == 404) {
-        _records = []; // Trả về mảng rỗng để hiện UI "Chưa có lịch sử"
+        _records = []; // Empty list to show the "no history" UI
       } else {
         _error = e.message;
       }
     } catch (e) {
-      _error = 'Không thể tải lịch sử: $e';
+      _error = 'Could not load history: $e';
     } finally {
-      // Dù thành công hay thất bại (có hoặc không có lịch sử) đều PHẢI tắt vòng xoay
+      // Always stop the spinner whether it succeeds or fails
       if (mounted) setState(() { _isLoading = false; });
     }
   }
 
+  String _totalCost() {
+    final total = _records.fold<double>(0, (s, r) => s + (r.totalCost ?? 0));
+    final n = total.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.');
+    return '₫$n';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Lịch sử sửa chữa'),
+        title: const Text('Repair history'),
         centerTitle: true,
-        backgroundColor: scheme.surface,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: _load,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(color: AppColors.primary))
             : _error != null
-            ? Center(child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 52, color: scheme.outlineVariant),
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: scheme.onSurfaceVariant)),
-            const SizedBox(height: 12),
-            TextButton(onPressed: _load, child: const Text('Thử lại')),
-          ],
-        ))
-            : _records.isEmpty
-            ? ListView(
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.6,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.build_circle_outlined, size: 72, color: scheme.outlineVariant),
-                    const SizedBox(height: 16),
-                    Text('Chưa có lịch sử bảo dưỡng',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        )
-            : ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(), // Đảm bảo luôn kéo vuốt Refresh được
-          padding: const EdgeInsets.all(16),
-          itemCount: _records.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _RecordCard(record: _records[index], index: index),
-        ),
+                ? Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_off_outlined, size: 52, color: AppColors.edge),
+                      const SizedBox(height: 12),
+                      Text(_error!, style: TextStyle(color: AppColors.inkMuted)),
+                      const SizedBox(height: 12),
+                      TextButton(onPressed: _load, child: const Text('Retry')),
+                    ],
+                  ))
+                : _records.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.build_circle_outlined, size: 72, color: AppColors.edge),
+                                  SizedBox(height: 16),
+                                  Text('No maintenance history yet',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(), // Always allow pull-to-refresh
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        children: [
+                          // Summary header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('THIS YEAR',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.faint, letterSpacing: 1)),
+                                    const SizedBox(height: 2),
+                                    Text('${_records.length} services · ${_totalCost()}',
+                                        style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                                  ],
+                                ),
+                                Container(
+                                  width: 40, height: 40,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(12)),
+                                  child: Icon(Icons.build_rounded, size: 22, color: AppColors.primaryHover),
+                                ),
+                              ],
+                            ),
+                          ),
+                          for (var i = 0; i < _records.length; i++) ...[
+                            _RecordCard(record: _records[i], index: i),
+                            const SizedBox(height: 12),
+                          ],
+                        ],
+                      ),
       ),
     );
   }
@@ -116,36 +153,38 @@ class _RecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.edge),
+        boxShadow: [BoxShadow(color: AppColors.primaryDeep.withValues(alpha: 0.06), blurRadius: 22, offset: const Offset(0, 8))],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // ── Timeline indicator ───────────────────────────────────────
+            // ── Timeline strip ──────────────────────────────────────────
             Container(
-              width: 48,
+              width: 50,
               decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+                gradient: LinearGradient(colors: [AppColors.primaryLight, AppColors.primaryMuted], begin: Alignment.topCenter, end: Alignment.bottomCenter),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.build_rounded, size: 20, color: scheme.primary),
+                  Icon(Icons.build_rounded, size: 21, color: AppColors.primaryHover),
                   const SizedBox(height: 4),
                   Text('#${index + 1}',
-                      style: TextStyle(fontSize: 10, color: scheme.primary, fontWeight: FontWeight.w600)),
+                      style: TextStyle(fontSize: 10, color: AppColors.primaryDeep, fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
 
-            // ── Details ──────────────────────────────────────────────────
+            // ── Details ─────────────────────────────────────────────────
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -153,38 +192,38 @@ class _RecordCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(record.formattedDate,
-                            style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onSurface)),
+                            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 13.5)),
                         Text(record.formattedCost,
-                            style: TextStyle(fontWeight: FontWeight.w700, color: scheme.primary, fontSize: 15)),
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: AppColors.primaryHover, fontSize: 15)),
                       ],
                     ),
-                    if (record.branchName != null) ...[
-                      const SizedBox(height: 4),
-                      Row(children: [
-                        Icon(Icons.location_on_outlined, size: 13, color: scheme.onSurfaceVariant),
-                        const SizedBox(width: 3),
-                        Text(record.branchName!, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
-                      ]),
-                    ],
-                    if (record.currentKm != null) ...[
-                      const SizedBox(height: 4),
-                      Row(children: [
-                        Icon(Icons.speed_outlined, size: 13, color: scheme.onSurfaceVariant),
-                        const SizedBox(width: 3),
-                        Text('${record.currentKm} km',
-                            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
-                      ]),
-                    ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (record.branchName != null) ...[
+                          Icon(Icons.location_on_outlined, size: 14, color: AppColors.faint),
+                          const SizedBox(width: 4),
+                          Text(record.branchName!, style: TextStyle(color: AppColors.faint, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                          const SizedBox(width: 14),
+                        ],
+                        if (record.currentKm != null) ...[
+                          Icon(Icons.speed_outlined, size: 14, color: AppColors.faint),
+                          const SizedBox(width: 4),
+                          Text('${record.currentKm} km', style: TextStyle(color: AppColors.faint, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                        ],
+                      ],
+                    ),
                     if (record.serviceDetails != null && record.serviceDetails!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                         decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.fieldFill,
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(record.serviceDetails!,
-                          style: TextStyle(fontSize: 12, color: scheme.onSurface),
+                          style: TextStyle(fontSize: 12, color: AppColors.inkMuted, height: 1.4),
                           maxLines: 3, overflow: TextOverflow.ellipsis,
                         ),
                       ),

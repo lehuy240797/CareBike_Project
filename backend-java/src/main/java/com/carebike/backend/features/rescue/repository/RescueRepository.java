@@ -9,8 +9,8 @@ import java.util.List;
 @Repository
 public interface RescueRepository extends JpaRepository<Rescue, Long> {
     // Lấy các ca cứu hộ của 1 chi nhánh (Dùng cho React Admin)
-    List<Rescue> findByBranchIdOrderByCreatedAtDesc(Long branchId);
+    List<Rescue> findByBranchIdOrderByCreatedAtDesc(Integer branchId);
     
     // Lấy lịch sử cứu hộ của 1 khách hàng (Dùng cho Flutter)
-    List<Rescue> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
+    List<Rescue> findByCustomerIdOrderByCreatedAtDesc(Integer customerId);
 }

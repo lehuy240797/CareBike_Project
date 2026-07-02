@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/app_text_field.dart';
-import '../../widgets/loading_button.dart';
+import '_auth_widgets.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -41,31 +42,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!mounted) return;
 
-    // FIX LỖI THIẾU THÔNG BÁO: Hiện thông báo bắt buộc đọc thay vì tự động pop() ngay
+    // Show a must-read dialog instead of popping automatically
     if (success) {
       showDialog(
         context: context,
-        barrierDismissible: false, // Bắt người dùng phải bấm nút để đóng
+        barrierDismissible: false, // Force the user to tap the button to close
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.mark_email_unread_outlined, color: Colors.green, size: 28),
               SizedBox(width: 8),
-              Text("Đăng ký thành công", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
+              Text("Registration successful", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
           content: const Text(
-              "Tài khoản của bạn đã được tạo thành công.\n\nHệ thống vừa gửi một liên kết xác thực đến hòm thư của bạn. Vui lòng kiểm tra Email (bao gồm cả mục Thư rác/Spam) và xác nhận trước khi đăng nhập.",
+              "Your account has been created successfully.\n\nWe just sent a verification link to your inbox. Please check your email (including the Spam folder) and confirm before signing in.",
               style: TextStyle(fontSize: 15, height: 1.4)
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(ctx); // Đóng bảng thông báo
-                Navigator.pop(context); // Trở về trang Đăng nhập
+                Navigator.pop(ctx); // Close the dialog
+                Navigator.pop(context); // Back to the sign-in screen
               },
-              child: const Text("Đã hiểu", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text("Got it", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             )
           ],
         ),
@@ -75,75 +76,133 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: scheme.surface,
-      appBar: AppBar(
-        title: const Text('Tạo tài khoản'),
-        centerTitle: true,
-        backgroundColor: scheme.surface,
-        surfaceTintColor: Colors.transparent,
-      ),
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Thông tin cá nhân', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                const SizedBox(height: 4),
-                AppTextField(
-                  label: 'Họ và tên', controller: _fullNameCtrl,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập họ tên.' : null,
-                ),
-                const SizedBox(height: 14),
-                AppTextField(
-                  label: 'Số điện thoại', controller: _phoneCtrl, keyboardType: TextInputType.phone,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập số điện thoại.' : null,
-                ),
-                const SizedBox(height: 14),
-                AppTextField(
-                  label: 'Email', controller: _emailCtrl, keyboardType: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Vui lòng nhập email.';
-                    if (!v.contains('@')) return 'Email không hợp lệ.';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                Divider(color: scheme.outlineVariant),
-                const SizedBox(height: 16),
+        child: Column(
+          children: [
+            // Header bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(11),
+                    child: Container(
+                      width: 38, height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: AppColors.edge),
+                      ),
+                      child: Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.ink),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 38),
+                      child: Text('Create account',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                Text('Thông tin bảo mật', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scheme.onSurface)),
-                const SizedBox(height: 16),
+            // Form
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(28, 14, 28, 32),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionTitle(Icons.person_rounded, 'Personal information'),
+                      const SizedBox(height: 14),
 
-                AppTextField(
-                  label: 'Mật khẩu', controller: _passwordCtrl, hint: 'Tối thiểu 6 ký tự', obscureText: _obscurePass,
-                  validator: (v) {
-                    if (v == null || v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự.';
-                    return null;
-                  },
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                      const AuthLabel('Full name', dot: false),
+                      AuthField(
+                        controller: _fullNameCtrl,
+                        icon: Icons.badge_rounded,
+                        hint: 'e.g. Minh Nguyen',
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your full name.' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      const AuthLabel('Phone number', dot: false),
+                      AuthField(
+                        controller: _phoneCtrl,
+                        icon: Icons.call_rounded,
+                        hint: '090 123 4567',
+                        keyboardType: TextInputType.phone,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your phone number.' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      const AuthLabel('Email', dot: false),
+                      AuthField(
+                        controller: _emailCtrl,
+                        icon: Icons.mail_rounded,
+                        hint: 'example@gmail.com',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Please enter your email.';
+                          if (!v.contains('@')) return 'Invalid email.';
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 22),
+                      Container(height: 1, color: AppColors.edge),
+                      const SizedBox(height: 22),
+
+                      _sectionTitle(Icons.shield_rounded, 'Security information'),
+                      const SizedBox(height: 14),
+
+                      const AuthLabel('Password', dot: false),
+                      AuthField(
+                        controller: _passwordCtrl,
+                        icon: Icons.lock_rounded,
+                        hint: 'At least 6 characters',
+                        obscure: _obscurePass,
+                        onToggleObscure: () => setState(() => _obscurePass = !_obscurePass),
+                        validator: (v) {
+                          if (v == null || v.length < 6) return 'Password must be at least 6 characters.';
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 28),
+                      AuthGradientButton(
+                        label: 'Create account',
+                        isLoading: auth.isLoading,
+                        onTap: _submit,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 28),
-                LoadingButton(
-                  label: 'Tạo tài khoản',
-                  isLoading: auth.isLoading,
-                  onPressed: _submit,
-                ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _sectionTitle(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(text, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.ink)),
+      ],
     );
   }
 }

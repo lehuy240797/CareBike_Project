@@ -23,10 +23,10 @@ class Appointment {
 
   String get statusLabel {
     switch (status) {
-      case 'CONFIRMED':  return 'Đã xác nhận';
-      case 'COMPLETED':  return 'Hoàn thành';
-      case 'CANCELLED':  return 'Đã hủy';
-      default:           return 'Chờ xác nhận';
+      case 'CONFIRMED':  return 'Confirmed';
+      case 'COMPLETED':  return 'Completed';
+      case 'CANCELLED':  return 'Cancelled';
+      default:           return 'Pending';
     }
   }
 

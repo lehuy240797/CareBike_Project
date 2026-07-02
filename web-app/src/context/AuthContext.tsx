@@ -244,31 +244,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           case 'auth/invalid-credential':
           case 'auth/wrong-password':
           case 'auth/user-not-found':
-            throw new Error("Tên đăng nhập hoặc mật khẩu không chính xác.");
+            throw new Error("Incorrect username or password.");
           case 'auth/too-many-requests':
-            throw new Error("Tài khoản tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau.");
+            throw new Error("Account temporarily locked after too many failed attempts. Please try again later.");
           case 'auth/user-disabled':
-            throw new Error("Tài khoản của bạn đã bị vô hiệu hóa.");
+            throw new Error("Your account has been disabled.");
           case 'auth/network-request-failed':
-            throw new Error("Không có kết nối mạng. Vui lòng kiểm tra lại.");
+            throw new Error("No network connection. Please check and try again.");
           default:
-            throw new Error("Hệ thống xác thực đang bận. Vui lòng thử lại sau.");
+            throw new Error("The authentication system is busy. Please try again later.");
         }
       }
 
-      // 3. Lỗi mạng chung hoặc server sập
-      throw new Error("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+      // 3. Generic network error or server down
+      throw new Error("Could not connect to the server. Please try again later.");
     }
   }, []);
 
   // ── Register (Tạm thời giữ nguyên hoặc cấu hình sau) ────────────────────────
   const register = useCallback(async (_data: RegisterRequest) => {
-    throw new Error('Tính năng đăng ký Web đang được cập nhật qua Firebase.');
+    throw new Error('Web registration is being migrated to Firebase.');
   }, []);
 
   // ── Change Password (Tạm thời giữ nguyên hoặc cấu hình sau) ────────────────
   const changePassword = useCallback(async (_data: ChangePasswordRequest) => {
-    throw new Error('Tính năng đổi mật khẩu đang được cập nhật qua Firebase.');
+    throw new Error('Password change is being migrated to Firebase.');
   }, []);
 
   return (

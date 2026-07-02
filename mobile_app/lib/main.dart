@@ -5,13 +5,17 @@ import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/auth_wrapper.dart';
+import 'core/theme.dart';
+import 'core/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // KHỞI TẠO FIREBASE
+  // INITIALIZE FIREBASE
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Load the saved light/dark preference before the first frame.
+  await ThemeController.instance.load();
   runApp(const CareBikeApp());
 }
 
@@ -20,31 +24,21 @@ class CareBikeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: MaterialApp(
-        title: 'CareBike',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF00796B),
-            brightness: Brightness.light,
-          ),
-          fontFamily: 'Roboto',
-          navigationBarTheme: const NavigationBarThemeData(
-            height: 64,
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-          filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: ThemeController.instance),
+      ],
+      // Rebuild the whole app (and re-resolve AppColors tokens) on toggle.
+      child: Consumer<ThemeController>(
+        builder: (context, themeController, _) => MaterialApp(
+          title: 'CareBike',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeController.mode,
+          home: const AuthWrapper(),
         ),
-        home: const AuthWrapper(),
       ),
     );
   }
