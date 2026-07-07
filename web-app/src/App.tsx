@@ -14,6 +14,7 @@ import CustomerManagement from './pages/CustomerManagement';
 import StaffManagement from './pages/StaffManagement';
 import AdminDashboard from './pages/AdminDashboard';
 import BranchDashboard from './pages/BranchDashboard';
+import Revenue from './pages/Revenue';
 
 // =========================================================================
 // TRẠM ĐIỀU HƯỚNG DASHBOARD (PROXY COMPONENT)
@@ -49,6 +50,7 @@ const App = () => {
               <Route index element={<DashboardRouter />} />
 
               <Route path="change-password" element={<ChangePassword />} />
+              <Route path="revenue" element={<Revenue />} />
 
               {/* ── Admin-only routes ──────────────────────────────────────── */}
               <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>

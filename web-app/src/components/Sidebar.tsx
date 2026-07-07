@@ -7,6 +7,7 @@ import {
   Users,
   KeyRound,
   UserCog,
+  TrendingUp,
 } from 'lucide-react';
 
 interface NavItem {
@@ -40,6 +41,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: <Users size={20} aria-hidden="true" />,
     label: 'Customers',
     roles: ['ADMIN'],
+  },
+  {
+    to: '/revenue',
+    icon: <TrendingUp size={20} aria-hidden="true" />,
+    label: 'Revenue',
+    roles: ['ADMIN', 'BRANCH'],
   },
   {
     to: '/change-password',

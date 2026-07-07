@@ -27,7 +27,7 @@ const _banners = <_Banner>[
 ];
 
 // ── Quick-action tabs (visual shortcuts) ─────────────────────────────────────
-enum _QuickAction { book, branchMap, support, rescue, appointments }
+enum _QuickAction { branchMap, support, rescue, appointments }
 
 class _Quick {
   final String label;
@@ -37,7 +37,6 @@ class _Quick {
 }
 
 const _quick = <_Quick>[
-  _Quick('Book', Icons.event_available_rounded, _QuickAction.book),
   _Quick('Appointments', Icons.calendar_month_rounded, _QuickAction.appointments),
   _Quick('Branches', Icons.pin_drop_rounded, _QuickAction.branchMap),
   _Quick('Rescue', Icons.emergency_rounded, _QuickAction.rescue),
@@ -516,8 +515,6 @@ class _HomeTabState extends State<HomeTab> {
   /// Route a quick-tab tap to its destination (mirrors the side-drawer actions).
   void _onQuickTap(_QuickAction action) {
     switch (action) {
-      case _QuickAction.book:
-        break; // The booking form is right below on this screen.
       case _QuickAction.branchMap:
         Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchMapScreen()));
       case _QuickAction.support:
