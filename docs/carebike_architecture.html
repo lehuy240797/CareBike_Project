@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareBike — Kiến trúc hệ thống</title>
+<script>
+  (function () {
+    const saved = localStorage.getItem('theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #FAF9F5; --surface: #FFFFFF; --surface2: #F0EEE6;
+    --ink: #141413; --body: #3D3D3A; --muted: #87867F;
+    --line: #D1CFC5; --line-soft: #E6E3DA;
+    --clay: #EA580C; --clay-soft: rgba(234,88,12,0.10);
+    --olive: #1D9E75; --olive-soft: rgba(29,158,117,0.12);
+    --gold: #C9A45C; --blue: #5B7E96; --blue-soft: rgba(91,126,150,0.12);
+    --zone: rgba(20,20,19,0.025); --zone-line: #D1CFC5;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html.dark {
+    --bg: #141413; --surface: #1F1F1D; --surface2: #2A2A28;
+    --ink: #FAF9F5; --body: #D1CFC5; --muted: #8A8981;
+    --line: #3D3D3A; --line-soft: #2A2A28;
+    --clay: #F97316; --clay-soft: rgba(249,115,22,0.16);
+    --olive: #34C79A; --olive-soft: rgba(52,199,154,0.16);
+    --gold: #D4B36F; --blue: #7FA3BC; --blue-soft: rgba(127,163,188,0.16);
+    --zone: rgba(250,249,245,0.03); --zone-line: #3D3D3A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--body); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--line-soft); flex: none;
+  }
+  .bar h1 { font-family: var(--serif); font-weight: 500; font-size: 19px; color: var(--ink); letter-spacing: -0.01em; }
+  .bar .sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .spacer { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: transparent; color: var(--muted); cursor: pointer; transition: all .15s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  #themeToggle {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: transparent; color: var(--muted); cursor: pointer;
+  }
+  #themeToggle:hover { color: var(--ink); border-color: var(--muted); }
+
+  .stage { flex: 1; position: relative; min-height: 0; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .zone rect { fill: var(--zone); stroke: var(--zone-line); stroke-width: 1; stroke-dasharray: 5 5; }
+  .zone .ztitle { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; fill: var(--muted); }
+  .zone .zsub { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); opacity: 0.75; }
+
+  .node { cursor: pointer; }
+  .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; transition: stroke .15s ease, filter .15s ease; }
+  .node:hover rect { stroke: var(--muted); }
+  .node.sel rect { stroke: var(--clay) !important; stroke-width: 2.5; }
+  .node .t  { font-family: var(--sans); font-size: 15px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+  .node .m  { font-family: var(--mono); font-size: 11px; fill: var(--muted); pointer-events: none; }
+  .node .k  { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--clay); pointer-events: none; }
+  .node.gate rect { fill: var(--clay-soft); stroke: var(--clay); }
+  .node.store rect { fill: var(--surface2); }
+  .node.ai rect { fill: var(--blue-soft); stroke: var(--blue); }
+  .node.do rect { fill: var(--olive-soft); stroke: var(--olive); }
+  .node.ext rect { stroke-dasharray: 6 3; }
+
+  .edge { stroke: var(--muted); stroke-width: 1.6; fill: none; marker-end: url(#a-mut); transition: opacity .2s ease, stroke .2s ease; }
+  .edge.dash { stroke-dasharray: 5 4; }
+  .edge.ws { stroke-width: 2.2; stroke: var(--blue); marker-end: url(#a-blue); }
+  .elbl { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); transition: opacity .2s ease; }
+
+  .stage.flowing .edge { opacity: 0.12; }
+  .stage.flowing .elbl { opacity: 0.12; }
+  .stage.flowing .node { opacity: 0.28; }
+  .stage.flowing .zone { opacity: 0.45; }
+  .stage.flowing .edge.lit {
+    opacity: 1; stroke: var(--clay); marker-end: url(#a-clay);
+    stroke-dasharray: 7 5; animation: march 0.9s linear infinite;
+  }
+  .stage.flowing .elbl.lit { opacity: 1; fill: var(--clay); }
+  .stage.flowing .node.lit { opacity: 1; }
+  .stage.flowing .node.lit rect { stroke: var(--clay); }
+  @keyframes march { to { stroke-dashoffset: -12; } }
+  @media (prefers-reduced-motion: reduce) { .stage.flowing .edge.lit { animation: none; } }
+
+  /* hover tooltip */
+  #tip {
+    position: absolute; pointer-events: none; z-index: 20; max-width: 300px;
+    background: var(--ink); color: var(--bg); border-radius: 8px; padding: 9px 12px;
+    font-size: 12px; line-height: 1.5; box-shadow: 0 6px 22px rgba(0,0,0,0.22);
+    opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease;
+  }
+  #tip.show { opacity: 1; transform: translateY(0); }
+  #tip b { font-weight: 600; }
+  #tip .tk { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; opacity: .7; display:block; margin-bottom:2px; }
+
+  .card {
+    position: absolute; max-width: 380px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+  }
+  #detail { right: 16px; bottom: 16px; width: 350px; }
+  #detail h3 { font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--ink); margin-bottom: 2px; }
+  #detail .meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 8px; }
+  #detail p { font-size: 12.5px; line-height: 1.55; }
+  #detail p code, #flowcap code { font-family: var(--mono); font-size: 11px; color: var(--clay); }
+  #flowcap { left: 16px; bottom: 16px; max-width: 470px; display: none; }
+  #flowcap.show { display: block; }
+  #flowcap .fname { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); margin-bottom: 6px; }
+  #flowcap ol { margin-left: 18px; }
+  #flowcap li { font-size: 12.5px; line-height: 1.55; }
+  .src { position: absolute; top: 10px; right: 16px; font-family: var(--mono); font-size: 10px; color: var(--muted); opacity: 0.8; }
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .stage { min-height: 78vh; }
+    #detail { position: static; width: auto; margin: 10px 16px; }
+    #flowcap { position: static; margin: 0 16px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div>
+    <h1>CareBike — Kiến trúc hệ thống</h1>
+    <div class="sub">2 client · 2 backend · 1 CSDL · 2 dịch vụ AI</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="chips" id="chips">
+    <button class="chip on" data-flow="all">Tất cả</button>
+    <button class="chip" data-flow="login">Đăng nhập</button>
+    <button class="chip" data-flow="chat">Chatbot AI</button>
+    <button class="chip" data-flow="vision">Quét camera</button>
+    <button class="chip" data-flow="booking">Đặt lịch</button>
+    <button class="chip" data-flow="rescue">Cứu hộ SOS</button>
+    <button class="chip" data-flow="admin">Quản trị web</button>
+  </div>
+  <button id="themeToggle">Theme</button>
+</div>
+
+<div class="stage" id="stage">
+<svg viewBox="0 0 1360 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sơ đồ kiến trúc hệ thống CareBike">
+  <defs>
+    <marker id="a-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/>
+    </marker>
+    <marker id="a-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--clay)"/>
+    </marker>
+    <marker id="a-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--blue)"/>
+    </marker>
+  </defs>
+
+  <!-- ── zones ─────────────────────────────── -->
+  <g class="zone" id="z-clients">
+    <rect x="30" y="80" width="255" height="470" rx="16"/>
+    <text class="ztitle" x="50" y="112">Clients</text>
+    <text class="zsub" x="50" y="130">app khách + portal quản trị</text>
+  </g>
+  <g class="zone" id="z-api">
+    <rect x="320" y="55" width="565" height="565" rx="16"/>
+    <text class="ztitle" x="342" y="87">Spring Boot Backend</text>
+    <text class="zsub" x="342" y="105">Java · REST + WebSocket · cổng :8080</text>
+  </g>
+  <g class="zone" id="z-vision">
+    <rect x="30" y="640" width="410" height="220" rx="16"/>
+    <text class="ztitle" x="50" y="672">Python Vision API</text>
+    <text class="zsub" x="50" y="690">FastAPI + YOLO · cổng :8000</text>
+  </g>
+  <g class="zone" id="z-data">
+    <rect x="925" y="55" width="405" height="565" rx="16"/>
+    <text class="ztitle" x="947" y="87">Dữ liệu &amp; Dịch vụ ngoài</text>
+    <text class="zsub" x="947" y="105">một nguồn sự thật cho mỗi loại</text>
+  </g>
+
+  <!-- ── edges ─────────────────────────────── -->
+  <path class="edge" id="e-mob-gate"  d="M255,215 C 300,205 322,192 345,190"/>
+  <path class="edge" id="e-web-gate"  d="M255,392 C 300,388 322,214 345,202"/>
+  <path class="edge" id="e-gate-rest" d="M430,235 L430,270"/>
+  <path class="edge" id="e-gate-ai"   d="M580,190 L610,190"/>
+  <path class="edge" id="e-ai-gemini" d="M865,205 C 900,222 918,286 943,300"/>
+  <path class="edge" id="e-ai-mysql"  d="M745,235 C 850,300 895,435 943,458"/>
+  <path class="edge" id="e-rest-mysql" d="M865,350 C 900,400 915,440 943,462"/>
+  <path class="edge dash" id="e-gate-fire" d="M560,145 C 720,95 865,115 943,160"/>
+  <path class="edge dash" id="e-mob-fire"  d="M255,160 C 500,58 860,58 1015,150"/>
+  <path class="edge dash" id="e-web-fire"  d="M255,332 C 560,92 800,120 943,178"/>
+  <path class="edge ws" id="e-mob-ws"  d="M255,258 C 305,300 322,470 345,488"/>
+  <path class="edge ws" id="e-web-ws"  d="M255,432 C 300,450 322,492 345,502"/>
+  <path class="edge" id="e-rest-ws"   d="M460,435 L460,465"/>
+  <path class="edge" id="e-mob-vision" d="M150,305 C 120,470 120,720 235,745"/>
+  <path class="edge" id="e-fast-yolo" d="M300,762 L330,762"/>
+
+  <!-- edge labels -->
+  <text class="elbl" data-e="e-mob-gate" x="292" y="180">REST · Bearer JWT</text>
+  <text class="elbl" data-e="e-ai-gemini" x="905" y="262" text-anchor="start">prompt + lịch sử</text>
+  <text class="elbl" data-e="e-ai-mysql" x="812" y="360">đọc lịch sử</text>
+  <text class="elbl" data-e="e-rest-mysql" x="905" y="405">CRUD (JPA)</text>
+  <text class="elbl" data-e="e-gate-fire" x="700" y="98" text-anchor="middle">verify ID token</text>
+  <text class="elbl" data-e="e-mob-fire" x="600" y="62" text-anchor="middle">đăng nhập</text>
+  <text class="elbl" data-e="e-mob-ws" x="300" y="360">WebSocket (STOMP)</text>
+  <text class="elbl" data-e="e-rest-ws" x="470" y="455">sự kiện realtime</text>
+  <text class="elbl" data-e="e-mob-vision" x="70" y="520">ảnh · multipart</text>
+  <text class="elbl" data-e="e-fast-yolo" x="298" y="752" text-anchor="end">infer</text>
+
+  <!-- ── nodes: clients ────────────────────── -->
+  <g class="node" data-k="mobile">
+    <rect x="55" y="150" width="200" height="150" rx="10"/>
+    <text class="t" x="75" y="182">Mobile app</text>
+    <text class="k" x="75" y="202">khách + kỹ thuật viên</text>
+    <text class="m" x="75" y="224">Flutter · feature-first</text>
+    <text class="m" x="75" y="242">Firebase auth · http · STOMP</text>
+    <text class="m" x="75" y="260">image_picker (camera)</text>
+    <text class="m" x="75" y="284">nút camera → Vision API</text>
+  </g>
+  <g class="node" data-k="web">
+    <rect x="55" y="330" width="200" height="130" rx="10"/>
+    <text class="t" x="75" y="362">Web app</text>
+    <text class="k" x="75" y="382">admin + chi nhánh</text>
+    <text class="m" x="75" y="404">React + Vite · TS</text>
+    <text class="m" x="75" y="422">axios · STOMP · Leaflet</text>
+    <text class="m" x="75" y="440">quản trị toàn hệ thống</text>
+  </g>
+
+  <!-- ── nodes: spring boot ────────────────── -->
+  <g class="node gate" data-k="gate">
+    <rect x="345" y="145" width="235" height="90" rx="10"/>
+    <text class="t" x="365" y="176">Bảo mật / JWT</text>
+    <text class="k" x="365" y="196">cổng xác thực duy nhất</text>
+    <text class="m" x="365" y="216">JwtAuthenticationFilter</text>
+  </g>
+  <g class="node ai" data-k="ai">
+    <rect x="610" y="145" width="255" height="90" rx="10"/>
+    <text class="t" x="630" y="176">AI tư vấn (RAG)</text>
+    <text class="m" x="630" y="198">GeminiApiService</text>
+    <text class="m" x="630" y="216">/api/ai/consult</text>
+  </g>
+  <g class="node" data-k="rest">
+    <rect x="345" y="270" width="520" height="150" rx="10"/>
+    <text class="t" x="365" y="300">REST Controllers</text>
+    <text class="m" x="365" y="324">/auth · /users · /vehicles · /appointments</text>
+    <text class="m" x="365" y="344">/branches · /categories · /spare-parts · /staff</text>
+    <text class="m" x="365" y="364">/maintenance · /rescues · /customer-profiles</text>
+    <text class="m" x="365" y="392">Spring MVC · nghiệp vụ chia theo feature</text>
+  </g>
+  <g class="node" data-k="ws">
+    <rect x="345" y="465" width="235" height="90" rx="10"/>
+    <text class="t" x="365" y="496">WebSocket /ws</text>
+    <text class="m" x="365" y="518">STOMP broker</text>
+    <text class="m" x="365" y="536">đẩy SOS / lịch hẹn realtime</text>
+  </g>
+
+  <!-- ── nodes: python vision ──────────────── -->
+  <g class="node" data-k="fastapi">
+    <rect x="60" y="700" width="240" height="125" rx="10"/>
+    <text class="t" x="80" y="732">FastAPI server</text>
+    <text class="m" x="80" y="754">main.py</text>
+    <text class="m" x="80" y="772">POST /api/vision/analyze</text>
+    <text class="m" x="80" y="798">nhận ảnh → trả detections</text>
+  </g>
+  <g class="node do" data-k="yolo">
+    <rect x="330" y="700" width="90" height="125" rx="10"/>
+    <text class="t" x="350" y="740">YOLO</text>
+    <text class="m" x="350" y="762">best.pt</text>
+    <text class="m" x="350" y="780">detect</text>
+    <text class="m" x="350" y="796">độ mòn</text>
+  </g>
+
+  <!-- ── nodes: data & external ────────────── -->
+  <g class="node ext" data-k="firebase">
+    <rect x="945" y="130" width="360" height="90" rx="10"/>
+    <text class="t" x="965" y="161">Firebase Auth</text>
+    <text class="k" x="965" y="181">dịch vụ ngoài · danh tính</text>
+    <text class="m" x="965" y="201">phát hành ID token (JWT)</text>
+  </g>
+  <g class="node ext" data-k="gemini">
+    <rect x="945" y="255" width="360" height="90" rx="10"/>
+    <text class="t" x="965" y="286">Google Gemini</text>
+    <text class="k" x="965" y="306">dịch vụ ngoài · LLM</text>
+    <text class="m" x="965" y="326">sinh câu tư vấn bảo dưỡng</text>
+  </g>
+  <g class="node store" data-k="mysql">
+    <rect x="945" y="400" width="360" height="150" rx="10"/>
+    <text class="t" x="965" y="432">MySQL</text>
+    <text class="m" x="965" y="456">Spring Data JPA · nguồn sự thật</text>
+    <text class="m" x="965" y="476">users · vehicles · appointments</text>
+    <text class="m" x="965" y="496">branches · maintenance · rescues</text>
+    <text class="m" x="965" y="524">spare_parts · categories · staff</text>
+  </g>
+</svg>
+
+  <div class="src">backend-java · web-app · python-vision-api · mobile_app</div>
+
+  <div id="tip"></div>
+
+  <div class="card" id="flowcap">
+    <div class="fname" id="f-name"></div>
+    <ol id="f-steps"></ol>
+  </div>
+
+  <div class="card" id="detail">
+    <h3 id="d-title">Bấm vào bất kỳ khối nào</h3>
+    <div class="meta" id="d-meta">chi tiết thành phần</div>
+    <p id="d-body">Mỗi khối đều bấm được để xem giải thích. Rê chuột lên khối để hiện tooltip nhanh. Các chip phía trên làm sáng từng luồng nghiệp vụ — Đăng nhập, Chatbot AI, Quét camera, Đặt lịch, Cứu hộ SOS, Quản trị web.</p>
+  </div>
+</div>
+
+<script>
+const DETAIL = {
+  mobile: { t:"Mobile app (Flutter)", m:"client · khách hàng + kỹ thuật viên chi nhánh",
+    b:"Ứng dụng chính cho người dùng cuối, cấu trúc <b>feature-first</b>. Đăng nhập bằng Firebase, gọi REST tới backend Java kèm Bearer JWT, nhận realtime qua STOMP. Nút camera gọi <b>thẳng</b> Python Vision API (không qua Java)." },
+  web: { t:"Web app (React)", m:"client · admin + chi nhánh",
+    b:"Portal quản trị: React + Vite + TypeScript. Dùng <code>axios</code> tới <code>:8080/api</code>, có interceptor refresh token, bản đồ Leaflet, realtime STOMP. Quản lý chi nhánh, nhân viên, phụ tùng, danh mục, khách hàng, cứu hộ." },
+  gate: { t:"Bảo mật / JWT", m:"cổng xác thực duy nhất",
+    b:"<code>JwtAuthenticationFilter</code> + <code>SecurityConfig</code>: xác thực <b>Firebase ID token</b> trên mọi request, phân quyền theo vai trò <code>CUSTOMER / BRANCH / ADMIN</code>. Mọi controller đều đi qua đây trước." },
+  ai: { t:"AI tư vấn (RAG)", m:"GeminiApiService · POST /api/ai/consult",
+    b:"Bộ não chatbot phía server. Đọc <b>lịch sử bảo dưỡng + lịch hẹn</b> của khách từ MySQL, ghép vào prompt (RAG) rồi gọi Google Gemini, trả về câu tư vấn kèm tag hành động <code>[ACTION:RESCUE]</code> / <code>[ACTION:BOOKING]</code>." },
+  rest: { t:"REST Controllers", m:"Spring MVC · chia theo feature",
+    b:"Toàn bộ nghiệp vụ CRUD: xác thực, người dùng &amp; hồ sơ, xe, lịch hẹn, chi nhánh, danh mục, phụ tùng, nhân viên, lịch sử bảo dưỡng, cứu hộ. Mỗi feature là một package riêng (controller · service · repository · dto)." },
+  ws: { t:"WebSocket /ws", m:"STOMP broker · realtime",
+    b:"Kênh thời gian thực. Khi có yêu cầu <b>cứu hộ SOS</b> hoặc <b>lịch hẹn mới</b>, server đẩy sự kiện xuống app chi nhánh (mobile) và dashboard web để hiện cảnh báo ngay." },
+  fastapi: { t:"FastAPI server", m:"Python · main.py · :8000",
+    b:"Dịch vụ AI thị giác <b>tách biệt</b> khỏi backend Java. Endpoint <code>POST /api/vision/analyze</code> nhận ảnh dạng multipart, chạy mô hình rồi trả danh sách <code>detections</code> (nhãn, độ tin cậy, toạ độ khung)." },
+  yolo: { t:"Mô hình YOLO", m:"best.pt · nội bộ dịch vụ",
+    b:"Trọng số YOLO đã huấn luyện (Roboflow) để phát hiện <b>vết mòn / hư hỏng</b> lốp &amp; phụ tùng. Chạy in-process trong FastAPI, không gọi ra ngoài." },
+  firebase: { t:"Firebase Auth", m:"dịch vụ ngoài · danh tính",
+    b:"Nguồn danh tính. Client đăng nhập tại đây và nhận <b>ID token (JWT)</b>; backend Java xác minh token đó ở cổng bảo mật cho mọi request. Backend không tự lưu mật khẩu." },
+  gemini: { t:"Google Gemini", m:"dịch vụ ngoài · LLM",
+    b:"Mô hình ngôn ngữ lớn sinh câu trả lời cho chatbot. Backend gọi qua <code>RestTemplate</code> với khoá API cấu hình trong <code>application.properties</code>." },
+  mysql: { t:"MySQL", m:"Spring Data JPA · nguồn sự thật",
+    b:"Cơ sở dữ liệu quan hệ chứa toàn bộ dữ liệu nghiệp vụ: người dùng, xe, lịch hẹn, chi nhánh, lịch sử bảo dưỡng, cứu hộ, phụ tùng, danh mục, nhân viên. Cũng là nguồn ngữ cảnh cho RAG của chatbot." },
+};
+
+const FLOWS = {
+  login: {
+    name: "Đăng nhập — Firebase phát hành, backend xác minh",
+    edges: ["e-mob-fire","e-web-fire","e-gate-fire"],
+    nodes: ["mobile","web","firebase","gate"],
+    steps: ["Client đăng nhập tại Firebase và nhận <b>ID token (JWT)</b>","Mỗi request sau đó gắn <code>Authorization: Bearer &lt;token&gt;</code>","<code>JwtAuthenticationFilter</code> xác minh token và gán vai trò CUSTOMER/BRANCH/ADMIN"]
+  },
+  chat: {
+    name: "Chatbot AI — tư vấn có ngữ cảnh (RAG)",
+    edges: ["e-mob-gate","e-gate-ai","e-ai-mysql","e-ai-gemini"],
+    nodes: ["mobile","gate","ai","mysql","gemini"],
+    steps: ["Mobile gọi <code>POST /api/ai/consult</code> (kèm JWT)","<code>GeminiApiService</code> đọc lịch sử bảo dưỡng + lịch hẹn từ MySQL","Ghép ngữ cảnh vào prompt rồi gọi Google Gemini","Trả câu tư vấn về app, tách tag hành động để hiện nút"]
+  },
+  vision: {
+    name: "Quét camera — phát hiện độ mòn bằng YOLO",
+    edges: ["e-mob-vision","e-fast-yolo"],
+    nodes: ["mobile","fastapi","yolo"],
+    steps: ["Người dùng chụp/chọn ảnh; app upload <b>multipart</b> tới <code>:8000/api/vision/analyze</code>","FastAPI đưa ảnh vào mô hình YOLO (<code>best.pt</code>)","Trả về danh sách detections → app map thành báo cáo hư hỏng","Không đi qua backend Java — dịch vụ độc lập"]
+  },
+  booking: {
+    name: "Đặt lịch — tạo lịch hẹn + báo chi nhánh",
+    edges: ["e-mob-gate","e-gate-rest","e-rest-mysql","e-rest-ws","e-web-ws"],
+    nodes: ["mobile","gate","rest","mysql","ws","web"],
+    steps: ["Mobile gọi <code>POST /api/appointments</code> qua cổng JWT","Controller lưu lịch hẹn vào MySQL","Server đẩy sự kiện qua WebSocket /ws","Dashboard chi nhánh (web + mobile) cập nhật realtime"]
+  },
+  rescue: {
+    name: "Cứu hộ SOS — khẩn cấp, phát tới chi nhánh",
+    edges: ["e-mob-gate","e-gate-rest","e-rest-mysql","e-rest-ws","e-mob-ws","e-web-ws"],
+    nodes: ["mobile","gate","rest","mysql","ws","web"],
+    steps: ["Khách gửi <code>POST /api/rescues</code> (kèm vị trí)","Lưu yêu cầu vào MySQL","WebSocket phát cảnh báo tới app chi nhánh và web","Kỹ thuật viên nhận SOS và xử lý ngay"]
+  },
+  admin: {
+    name: "Quản trị web — vận hành hệ thống",
+    edges: ["e-web-gate","e-gate-rest","e-rest-mysql"],
+    nodes: ["web","gate","rest","mysql"],
+    steps: ["Web admin gọi REST (branches, staff, spare-parts, categories, maintenance)","Qua cổng JWT, kiểm tra vai trò ADMIN/BRANCH","Controller đọc/ghi MySQL và trả JSON về portal"]
+  }
+};
+
+const stage = document.getElementById('stage');
+const nodes = document.querySelectorAll('.node');
+const edges = document.querySelectorAll('.edge');
+const elbls = document.querySelectorAll('.elbl');
+const chips = document.querySelectorAll('.chip');
+const fcap = document.getElementById('flowcap');
+const tip = document.getElementById('tip');
+
+function setFlow(key) {
+  chips.forEach(c => c.classList.toggle('on', c.dataset.flow === key));
+  edges.forEach(e => e.classList.remove('lit'));
+  elbls.forEach(l => l.classList.remove('lit'));
+  nodes.forEach(n => n.classList.remove('lit'));
+  if (key === 'all') { stage.classList.remove('flowing'); fcap.classList.remove('show'); return; }
+  const f = FLOWS[key];
+  stage.classList.add('flowing');
+  f.edges.forEach(id => document.getElementById(id)?.classList.add('lit'));
+  elbls.forEach(l => { if (f.edges.includes(l.dataset.e)) l.classList.add('lit'); });
+  f.nodes.forEach(k => document.querySelector(`.node[data-k="${k}"]`)?.classList.add('lit'));
+  document.getElementById('f-name').textContent = f.name;
+  document.getElementById('f-steps').innerHTML = f.steps.map(s => `<li>${s}</li>`).join('');
+  fcap.classList.add('show');
+}
+chips.forEach(c => c.addEventListener('click', () => setFlow(c.dataset.flow)));
+
+nodes.forEach(n => {
+  n.addEventListener('click', () => {
+    nodes.forEach(x => x.classList.remove('sel'));
+    n.classList.add('sel');
+    const d = DETAIL[n.dataset.k];
+    if (!d) return;
+    document.getElementById('d-title').textContent = d.t;
+    document.getElementById('d-meta').textContent = d.m;
+    document.getElementById('d-body').innerHTML = d.b;
+  });
+  // hover tooltip
+  n.addEventListener('mouseenter', () => {
+    const d = DETAIL[n.dataset.k]; if (!d) return;
+    tip.innerHTML = `<span class="tk">${d.m}</span><b>${d.t}</b>`;
+    tip.classList.add('show');
+  });
+  n.addEventListener('mousemove', (e) => {
+    const r = stage.getBoundingClientRect();
+    let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+    if (x + 310 > r.width) x = e.clientX - r.left - 310;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  });
+  n.addEventListener('mouseleave', () => tip.classList.remove('show'));
+});
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+});
+</script>
+</body>
+</html>

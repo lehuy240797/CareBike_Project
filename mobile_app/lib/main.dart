@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:mobile_app/firebase_options.dart';
 
-import 'providers/auth_provider.dart';
-import 'providers/auth_wrapper.dart';
-import 'core/theme.dart';
-import 'core/theme_controller.dart';
+import 'package:mobile_app/features/auth/providers/auth_provider.dart';
+import 'package:mobile_app/app/auth_wrapper.dart';
+import 'package:mobile_app/core/theme/theme.dart';
+import 'package:mobile_app/core/theme/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
