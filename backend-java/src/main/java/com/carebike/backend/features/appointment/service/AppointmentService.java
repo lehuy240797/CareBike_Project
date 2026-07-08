@@ -7,9 +7,12 @@ import com.carebike.backend.features.auth.entity.User;
 import com.carebike.backend.features.auth.repository.UserRepository;
 import com.carebike.backend.features.branch.entity.Branch;
 import com.carebike.backend.features.branch.repository.BranchRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+
 import java.util.List;
 
 @Service
@@ -18,20 +21,27 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
-    private final SimpMessagingTemplate messagingTemplate;
 
+    // Không dùng final nữa để có thể gán giá trị sau khi khởi động
+    private SimpMessagingTemplate messagingTemplate;
+
+    // Bỏ messagingTemplate ra khỏi Constructor
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             UserRepository userRepository,
-            BranchRepository branchRepository,
-            SimpMessagingTemplate messagingTemplate) {
+            BranchRepository branchRepository) {
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
+    }
+
+    // Tiêm Bean vào một cách an toàn
+    @Autowired(required = false)
+    @Lazy
+    public void setMessagingTemplate(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
 
-    /** Book a new appointment and notify the branch in real-time */
     @Transactional
     public Appointment create(AppointmentRequest request) {
         User customer = userRepository.findById(request.getCustomerId())
@@ -49,42 +59,51 @@ public class AppointmentService {
         appointment.setBranch(branch);
         appointment.setAppointmentDate(request.getAppointmentDate());
         appointment.setNote(request.getNote());
-        appointment.setStatus("PENDING");
+        appointment.setStatus(
+                request.getStatus() == null || request.getStatus().isBlank()
+                        ? "PENDING"
+                        : request.getStatus().trim().toUpperCase()
+        );
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
-        // 1. Đẩy trọn vẹn object lịch hẹn mới qua WebSocket cho giao diện của chi nhánh
-        String destination = "/topic/branches/" + savedAppointment.getBranch().getId() + "/appointments";
-        messagingTemplate.convertAndSend(destination, savedAppointment);
+        // Kiểm tra an toàn trước khi gửi WebSocket
+        if (messagingTemplate != null) {
+            String destination = "/topic/branches/" + savedAppointment.getBranch().getId() + "/appointments";
+            messagingTemplate.convertAndSend(destination, savedAppointment);
+        }
 
         return savedAppointment;
     }
 
-    /** Get all appointments for a customer (newest first) */
     public List<Appointment> getByCustomerId(Integer customerId) {
-        return appointmentRepository.findByCustomerIdOrderByAppointmentDateDesc(customerId);
+        return appointmentRepository.findByCustomer_IdOrderByAppointmentDateDesc(customerId);
     }
 
-    /** Cancel an appointment and notify Branch */
     @Transactional
     public Appointment cancel(Integer id) {
         Appointment apt = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lịch hẹn không tồn tại: " + id));
-        
+
         apt.setStatus("CANCELLED");
         Appointment cancelledAppointment = appointmentRepository.save(apt);
-        String branchDestination = "/topic/branches/" + cancelledAppointment.getBranch().getId() + "/appointments";
-        messagingTemplate.convertAndSend(branchDestination, cancelledAppointment);
+
+        if (messagingTemplate != null) {
+            String branchDestination = "/topic/branches/" + cancelledAppointment.getBranch().getId() + "/appointments";
+            messagingTemplate.convertAndSend(branchDestination, cancelledAppointment);
+        }
 
         return cancelledAppointment;
     }
 
-    /** Get appointments for a branch by status */
     public List<Appointment> getByBranchIdAndStatus(Integer branchId, String status) {
-        return appointmentRepository.findByBranchIdAndStatusOrderByAppointmentDateAsc(branchId, status);
+        return appointmentRepository.findByBranch_IdAndStatusOrderByAppointmentDateAsc(branchId, status);
     }
 
-    /** Update appointment status and notify Customer */
+    public List<Appointment> getByBranchId(Integer branchId) {
+        return appointmentRepository.findByBranch_IdOrderByAppointmentDateDesc(branchId);
+    }
+
     @Transactional
     public Appointment updateStatus(Integer id, String newStatus) {
         Appointment apt = appointmentRepository.findById(id)
@@ -92,11 +111,12 @@ public class AppointmentService {
         apt.setStatus(newStatus);
         Appointment updatedAppointment = appointmentRepository.save(apt);
 
-        // Bắn thông báo Real-time lại cho khách hàng trên Mobile App biết trạng thái đã thay đổi
-        Integer customerId = updatedAppointment.getCustomer().getId();
-        String customerDestination = "/topic/customers/" + customerId + "/appointments";
-        messagingTemplate.convertAndSend(customerDestination, updatedAppointment);
-        
+        if (messagingTemplate != null) {
+            Integer customerId = updatedAppointment.getCustomer().getId();
+            String customerDestination = "/topic/customers/" + customerId + "/appointments";
+            messagingTemplate.convertAndSend(customerDestination, updatedAppointment);
+        }
+
         return updatedAppointment;
     }
 }

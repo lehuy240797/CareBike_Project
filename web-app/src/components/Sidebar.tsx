@@ -7,7 +7,10 @@ import {
   Users,
   KeyRound,
   UserCog,
-  TrendingUp,
+  Layers,
+  CalendarDays,
+  History,
+
 } from 'lucide-react';
 
 interface NavItem {
@@ -23,6 +26,18 @@ const NAV_ITEMS: NavItem[] = [
     icon: <LayoutDashboard size={20} aria-hidden="true" />,
     label: 'Dashboard',
     roles: ['ADMIN', 'BRANCH'],
+  },
+  {
+    to: '/shifts',
+    icon: <CalendarDays size={18} aria-hidden="true" />,
+    label: 'Shift Schedule',
+    roles: ['BRANCH'],
+  },
+  {
+    to: '/history',
+    icon: <History size={18} aria-hidden="true" />,
+    label: 'Request History',
+    roles: ['BRANCH'],
   },
   {
     to: '/staff',
@@ -41,12 +56,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: <Users size={20} aria-hidden="true" />,
     label: 'Customers',
     roles: ['ADMIN'],
-  },
-  {
-    to: '/revenue',
-    icon: <TrendingUp size={20} aria-hidden="true" />,
-    label: 'Revenue',
-    roles: ['ADMIN', 'BRANCH'],
   },
   {
     to: '/change-password',
@@ -91,9 +100,8 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col overflow-y-auto border-r border-edge bg-white p-4 shadow-xl transition-transform duration-200 lg:z-40 lg:shadow-none lg:translate-x-0 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}
+      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col overflow-y-auto border-r border-edge bg-white p-4 shadow-xl transition-transform duration-200 lg:z-40 lg:shadow-none lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       aria-label="Navigation menu"
     >
       {/* Brand */}
@@ -106,42 +114,40 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
 
       {/* Nav with sliding active indicator — vertically centered to fill space */}
       <nav className="relative flex flex-1 flex-col justify-center space-y-3">
-          {indicator.height > 0 && (
-            <div
-              className={`pointer-events-none absolute left-0 right-0 rounded-2xl bg-primary shadow-[0_0_20px_rgba(249,115,22,0.35)] ${
-                animate ? 'transition-all duration-300 ease-out' : ''
+        {indicator.height > 0 && (
+          <div
+            className={`pointer-events-none absolute left-0 right-0 rounded-2xl bg-primary shadow-[0_0_20px_rgba(249,115,22,0.35)] ${animate ? 'transition-all duration-300 ease-out' : ''
               }`}
-              style={{ top: indicator.top, height: indicator.height }}
-            />
-          )}
+            style={{ top: indicator.top, height: indicator.height }}
+          />
+        )}
 
-          {visibleItems.map((item, i) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              onClick={() => onClose?.()}
-              ref={(el) => {
-                itemRefs.current[i] = el;
-              }}
-              className={({ isActive }) =>
-                `relative z-10 flex w-full items-center gap-3.5 rounded-2xl px-5 py-4 font-exo text-base no-underline transition-colors duration-200 [&_svg]:shrink-0 ${
-                  isActive
-                    ? 'font-semibold text-white [&_svg]:text-white'
-                    : 'font-medium text-ink hover:bg-primary-light [&_svg]:text-ink-muted'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {item.icon}
-                  <span>{item.label}</span>
-                  {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/60" />}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+        {visibleItems.map((item, i) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            onClick={() => onClose?.()}
+            ref={(el) => {
+              itemRefs.current[i] = el;
+            }}
+            className={({ isActive }) =>
+              `relative z-10 flex w-full items-center gap-3.5 rounded-2xl px-5 py-4 font-exo text-base no-underline transition-colors duration-200 [&_svg]:shrink-0 ${isActive
+                ? 'font-semibold text-white [&_svg]:text-white'
+                : 'font-medium text-ink hover:bg-primary-light [&_svg]:text-ink-muted'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {item.icon}
+                <span>{item.label}</span>
+                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/60" />}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
 
       {/* Log out card */}
       <button

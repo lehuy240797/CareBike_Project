@@ -17,16 +17,16 @@ import {
 // ─── Tier badge config ────────────────────────────────────────────────────────
 
 const TIER_CONFIG: Record<MemberTier, { label: string; className: string }> = {
-  STANDARD: { label: 'Standard', className: badgeNeutral   },
-  SILVER:   { label: 'Silver',   className: badgeSilver     },
-  GOLD:     { label: 'Gold',     className: badgeGold       },
-  PLATINUM: { label: 'Platinum', className: badgePlatinum   },
+  STANDARD: { label: 'Standard', className: badgeNeutral },
+  SILVER: { label: 'Silver', className: badgeSilver },
+  GOLD: { label: 'Gold', className: badgeGold },
+  PLATINUM: { label: 'Platinum', className: badgePlatinum },
 };
 
 // ─── Sub-types ────────────────────────────────────────────────────────────────
 
 type ModalState =
-  | { type: 'vehicle';     customer: UserRecord }
+  | { type: 'vehicle'; customer: UserRecord }
   | { type: 'maintenance'; customer: UserRecord }
   | null;
 
@@ -49,12 +49,10 @@ const initials = (name: string) =>
 const searchInput =
   'w-full rounded-2xl border border-edge bg-primary-light/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20';
 const pill = (active: boolean) =>
-  `rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
+  `rounded-full px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
   }`;
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
+  `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
   }`;
 const cardActionBlue =
   'flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-blue-50 py-2.5 text-sm font-semibold text-blue-600 transition-all hover:bg-blue-100';
@@ -70,12 +68,12 @@ const STATUS_FILTERS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const CustomerManagement = () => {
-  const [customers, setCustomers]           = useState<UserRecord[]>([]);
-  const [profiles, setProfiles]             = useState<Map<number, CustomerProfile>>(new Map());
-  const [isLoading, setIsLoading]           = useState(true);
-  const [loadError, setLoadError]           = useState('');
-  const [modal, setModal]                   = useState<ModalState>(null);
-  const [togglingId, setTogglingId]         = useState<number | null>(null);
+  const [customers, setCustomers] = useState<UserRecord[]>([]);
+  const [profiles, setProfiles] = useState<Map<number, CustomerProfile>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [modal, setModal] = useState<ModalState>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   // ── Presentational UI state ──────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -316,11 +314,10 @@ const CustomerManagement = () => {
                         </button>
                         <button
                           type="button"
-                          className={`flex items-center justify-center rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all ${
-                            isActive
+                          className={`flex items-center justify-center rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition-all ${isActive
                               ? 'bg-red-50 text-red-600 hover:bg-red-500 hover:text-white'
                               : 'bg-green-50 text-green-700 hover:bg-green-500 hover:text-white'
-                          }`}
+                            }`}
                           title={isActive ? 'Lock account' : 'Unlock account'}
                           onClick={() => handleToggleStatus(customer)}
                           disabled={isToggling}

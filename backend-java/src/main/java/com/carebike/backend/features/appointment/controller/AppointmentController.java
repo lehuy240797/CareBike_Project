@@ -6,6 +6,7 @@ import com.carebike.backend.features.appointment.service.AppointmentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,10 +26,10 @@ public class AppointmentController {
      * Khởi tạo yêu cầu đặt lịch hẹn bảo dưỡng mới từ phía khách hàng.
      */
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<?> createAppointment(@RequestBody AppointmentRequest request) {
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CUSTOMER', 'BRANCH', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> createAppointment(@RequestBody AppointmentRequest request) {
         Appointment created = appointmentService.create(request);
-        return ResponseEntity.ok(created);
+        return ResponseEntity.ok(toResponse(created));
     }
 
     /**
@@ -36,8 +37,11 @@ public class AppointmentController {
      */
     @GetMapping("/customer/{customerId}")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<List<Appointment>> getByCustomer(@PathVariable Integer customerId) {
-        return ResponseEntity.ok(appointmentService.getByCustomerId(customerId));
+    public ResponseEntity<List<Map<String, Object>>> getByCustomer(@PathVariable Integer customerId) {
+        return ResponseEntity.ok(appointmentService.getByCustomerId(customerId)
+                .stream()
+                .map(this::toResponse)
+                .toList());
     }
 
     /**
@@ -55,10 +59,19 @@ public class AppointmentController {
      */
     @GetMapping("/branch/{branchId}")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('BRANCH', 'ADMIN')")
-    public ResponseEntity<List<Appointment>> getByBranchAndStatus(
+    public ResponseEntity<List<Map<String, Object>>> getByBranchAndStatus(
             @PathVariable Integer branchId,
-            @RequestParam String status) {
-        return ResponseEntity.ok(appointmentService.getByBranchIdAndStatus(branchId, status));
+            @RequestParam(required = false) String status) {
+        if (status == null || status.isEmpty()) {
+            return ResponseEntity.ok(appointmentService.getByBranchId(branchId)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList());
+        }
+        return ResponseEntity.ok(appointmentService.getByBranchIdAndStatus(branchId, status)
+                .stream()
+                .map(this::toResponse)
+                .toList());
     }
 
     /**
@@ -75,5 +88,19 @@ public class AppointmentController {
         }
         Appointment updated = appointmentService.updateStatus(id, status);
         return ResponseEntity.ok(updated);
+    }
+
+    private Map<String, Object> toResponse(Appointment appointment) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", appointment.getId());
+        response.put("appointmentDate", appointment.getAppointmentDate());
+        response.put("note", appointment.getNote());
+        response.put("status", appointment.getStatus());
+        response.put("customerId", appointment.getCustomerId());
+        response.put("customerName", appointment.getCustomerName());
+        response.put("customerPhone", appointment.getCustomerPhone());
+        response.put("branchId", appointment.getBranchId());
+        response.put("branchName", appointment.getBranchName());
+        return response;
     }
 }

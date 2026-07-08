@@ -9,9 +9,9 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import type { LoginRequest } from '../types/auth';
 
 const FEATURES = [
-  { icon: Store,      text: 'Manage branches & managers' },
-  { icon: BarChart2,  text: 'Real-time service analytics' },
-  { icon: Asterisk,   text: 'Coordinate emergency rescues' },
+  { icon: Store, text: 'Manage branches & managers' },
+  { icon: BarChart2, text: 'Real-time service analytics' },
+  { icon: Asterisk, text: 'Coordinate emergency rescues' },
 ];
 
 const Login: React.FC = () => {

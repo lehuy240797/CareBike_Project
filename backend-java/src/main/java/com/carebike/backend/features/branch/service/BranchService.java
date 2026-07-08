@@ -79,7 +79,12 @@ public class BranchService {
         if (!branchRepository.existsById(id)) {
             throw new RuntimeException("Không tìm thấy chi nhánh: " + id);
         }
-        branchRepository.deleteById(id);
+        try {
+            branchRepository.deleteById(id);
+            branchRepository.flush(); // Cần flush để trigger exception ngay lập tức
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new RuntimeException("Cannot delete this branch because it has associated data (staff, shifts, invoices...). Please change status to INACTIVE instead.");
+        }
     }
 
     // Nơi nhận dữ liệu: Nhận trực tiếp Tọa độ siêu chuẩn từ Frontend

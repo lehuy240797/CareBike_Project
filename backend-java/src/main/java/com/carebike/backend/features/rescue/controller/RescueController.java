@@ -38,7 +38,7 @@ public class RescueController {
      * Ghi chú: Cần bổ sung cơ chế phân trang (Pagination) để tối ưu hiệu suất truy vấn.
      */
     @GetMapping("/branch/{branchId}")
-    public ResponseEntity<?> getRescuesByBranch(@PathVariable Long branchId) {
+    public ResponseEntity<?> getRescuesByBranch(@PathVariable Integer branchId) {
         List<Rescue> list = rescueService.getRescuesByBranch(branchId);
         return ResponseEntity.ok(list);
     }
@@ -54,5 +54,20 @@ public class RescueController {
         
         rescue.setStatus("ACCEPTED"); // Đổi trạng thái sang Đã nhận
         return ResponseEntity.ok(rescueRepository.save(rescue));
+    }
+
+    /**
+     * POST /api/rescues/{id}/complete
+     * API cập nhật trạng thái ca cứu hộ thành COMPLETED và tạo hóa đơn thanh toán
+     */
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<?> completeRescue(@PathVariable Long id, @RequestBody com.carebike.backend.features.rescue.dto.RescueCompleteRequest request) {
+        rescueService.completeRescue(id, request);
+        return ResponseEntity.ok().body("{\"message\": \"Xác nhận thanh toán và lưu lịch sử thành công\"}");
+    }
+
+    @GetMapping("/debug")
+    public ResponseEntity<?> debugRescues() {
+        return ResponseEntity.ok(rescueRepository.findAll());
     }
 }

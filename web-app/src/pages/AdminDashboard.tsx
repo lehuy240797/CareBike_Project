@@ -9,7 +9,8 @@ import {
   Clock,
   CheckCircle2,
   Wrench,
-  UserCog
+  UserCog,
+  Package // Import thêm icon Package
 } from 'lucide-react';
 import { btnPrimary, dashTitle, eyebrow, pageSubtitle } from '../ui/styles';
 
@@ -39,7 +40,6 @@ const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(INITIAL_STATS);
 
-  // Tích hợp WebSocket (STOMP) để thống kê nhảy số Real-time
   useEffect(() => {
     const stompClient = new Client({
       brokerURL: 'ws://localhost:8080/ws',
@@ -49,11 +49,8 @@ const AdminDashboard: React.FC = () => {
 
     stompClient.onConnect = () => {
       console.log('Đã kết nối WebSocket thành công cho Admin!');
-
-      // Lắng nghe kênh thông báo tổng (Yêu cầu Backend bắn tin nhắn vào /topic/admin/stats)
       stompClient.subscribe('/topic/admin/stats', (message) => {
         if (message.body) {
-          // Logic ví dụ: Tăng số lượng đơn hôm nay lên 1 khi có đơn mới toàn hệ thống
           setStats((prevStats) =>
             prevStats.map(stat =>
               stat.id === 'today' ? { ...stat, value: stat.value + 1 } : stat
@@ -68,7 +65,6 @@ const AdminDashboard: React.FC = () => {
     };
 
     stompClient.activate();
-
     return () => {
       stompClient.deactivate();
     };

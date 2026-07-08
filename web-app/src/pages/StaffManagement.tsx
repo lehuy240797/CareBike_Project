@@ -5,30 +5,28 @@ import type { UserRecord } from '../services/userService';
 import StaffModal from '../components/modals/StaffModal';
 import toast from 'react-hot-toast';
 import {
-  badgeDanger, badgeSuccess, btnPrimary, dashTitle, eyebrow, iconBtnDelete, iconBtnEdit,
-  tableCard, tableEmpty, dataTable, tableScroll, tableSpinner, tdCell, thCell, tableRow,
+    badgeDanger, badgeSuccess, btnPrimary, dashTitle, eyebrow, iconBtnDelete, iconBtnEdit,
+    tableCard, tableEmpty, dataTable, tableScroll, tableSpinner, tdCell, thCell, tableRow,
 } from '../ui/styles';
 
 const initials = (name: string) =>
-  (name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+    (name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
 // ─── Filter UI primitives ──────────────────────────────────────────────────────
 
 const searchInput =
-  'w-full rounded-2xl border border-edge bg-primary-light/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20';
+    'w-full rounded-2xl border border-edge bg-primary-light/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20';
 const pill = (active: boolean) =>
-  `rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
-  }`;
+    `rounded-full px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
+    }`;
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
-  }`;
+    `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
+    }`;
 
 const STATUS_FILTERS = [
-  { id: 'All', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'locked', label: 'Locked' },
+    { id: 'All', label: 'All' },
+    { id: 'active', label: 'Active' },
+    { id: 'locked', label: 'Locked' },
 ];
 
 const StaffManagement = () => {
@@ -236,11 +234,10 @@ const StaffManagement = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => handleToggleStatus(staff.id)}
-                                                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold transition-all ${
-                                                        isActive
+                                                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold transition-all ${isActive
                                                             ? 'bg-red-50 text-red-600 hover:bg-red-500 hover:text-white'
                                                             : 'bg-green-50 text-green-700 hover:bg-green-500 hover:text-white'
-                                                    }`}
+                                                        }`}
                                                     title={isActive ? 'Lock account' : 'Unlock account'}
                                                 >
                                                     {isActive ? <Lock size={15} /> : <Unlock size={15} />}

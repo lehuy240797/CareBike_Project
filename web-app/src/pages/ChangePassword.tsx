@@ -172,9 +172,8 @@ const ChangePassword: React.FC = () => {
               {reqs.map((r) => (
                 <div key={r.label} className="flex items-center gap-2.5">
                   <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${
-                      r.ok ? 'bg-green-100 text-green-600' : 'bg-primary-light text-ink-muted'
-                    }`}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${r.ok ? 'bg-green-100 text-green-600' : 'bg-primary-light text-ink-muted'
+                      }`}
                   >
                     {r.ok ? <Check size={14} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
                   </span>

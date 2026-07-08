@@ -9,4 +9,5 @@ public class AppointmentRequest {
     private Integer branchId;
     private LocalDateTime appointmentDate;
     private String note;
+    private String status;
 }

@@ -30,12 +30,10 @@ const initials = (name: string) =>
 const searchInput =
   'w-full rounded-2xl border border-edge bg-primary-light/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20';
 const pill = (active: boolean) =>
-  `rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
+  `rounded-full px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'bg-primary-light text-primary-deep hover:bg-primary-muted'
   }`;
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-    active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
+  `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
   }`;
 
 const STATUS_FILTERS = [
@@ -122,9 +120,10 @@ const BranchManagement = () => {
     try {
       await deleteBranch(confirmModal.branch.id);
       setBranches((prev) => prev.filter((b) => b.id !== confirmModal.branch!.id));
+      toast.success('Branch deleted successfully');
       closeDeleteConfirm();
-    } catch {
-      /* keep modal open — user can retry */
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Unable to delete branch. It may have associated data.');
     } finally {
       setIsDeleting(false);
     }

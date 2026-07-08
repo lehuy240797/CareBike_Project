@@ -9,10 +9,14 @@
   /* Fonts — ported from my-app design system */
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-display: 'Poppins', 'Inter', system-ui, sans-serif;
-  --font-racing: 'Racing Sans One', system-ui, sans-serif;  /* brand / logo  */
-  --font-orb: 'Orbitron', system-ui, sans-serif;            /* nav / labels  */
-  --font-exo: 'Exo 2', system-ui, sans-serif;               /* menus / body  */
-  --font-pop: 'Poppins', system-ui, sans-serif;             /* subtitles     */
+  --font-racing: 'Racing Sans One', system-ui, sans-serif;
+  /* brand / logo  */
+  --font-orb: 'Orbitron', system-ui, sans-serif;
+  /* nav / labels  */
+  --font-exo: 'Exo 2', system-ui, sans-serif;
+  /* menus / body  */
+  --font-pop: 'Poppins', system-ui, sans-serif;
+  /* subtitles     */
   --font-roboto: 'Roboto', system-ui, sans-serif;
 
   /* Brand — bright energetic orange */
@@ -55,38 +59,101 @@
   --animate-spin-fast: spin 0.75s linear infinite;
 
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
   @keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
+
   @keyframes page-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
   @keyframes page-out {
-    from { opacity: 1; transform: translateY(0); }
-    to   { opacity: 0; transform: translateY(-6px); }
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
   }
+
   @keyframes scale-in {
-    from { opacity: 0; transform: scale(0.96); }
-    to   { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
+
   @keyframes aurora-drift {
-    0%   { transform: translate3d(0, 0, 0) scale(1); }
-    50%  { transform: translate3d(2%, -2%, 0) scale(1.08); }
-    100% { transform: translate3d(-2%, 2%, 0) scale(1.04); }
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    50% {
+      transform: translate3d(2%, -2%, 0) scale(1.08);
+    }
+
+    100% {
+      transform: translate3d(-2%, 2%, 0) scale(1.04);
+    }
   }
+
   @keyframes gradient-pan {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
   }
+
   @keyframes float-soft {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-6px); }
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-6px);
+    }
   }
 }
 
@@ -115,8 +182,13 @@
     width: 100%;
   }
 
-  button { cursor: pointer; }
-  button:disabled { cursor: not-allowed; }
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 
   /* Warm text selection */
   ::selection {
@@ -129,14 +201,23 @@
     scrollbar-width: thin;
     scrollbar-color: var(--color-primary-bright) transparent;
   }
-  *::-webkit-scrollbar { width: 10px; height: 10px; }
-  *::-webkit-scrollbar-track { background: transparent; }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   *::-webkit-scrollbar-thumb {
     background: linear-gradient(var(--color-primary-bright), var(--color-primary));
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
+
   *::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(var(--color-primary), var(--color-primary-hover));
     background-clip: padding-box;
@@ -157,6 +238,7 @@
 
 /* Respect reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

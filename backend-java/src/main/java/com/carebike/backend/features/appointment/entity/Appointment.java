@@ -18,10 +18,12 @@ public class Appointment {
 
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private User customer;
 
     @ManyToOne
     @JoinColumn(name = "branch_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Branch branch;
 
     @Column(name = "appointment_date", nullable = false)
@@ -44,6 +46,11 @@ public class Appointment {
         return customer != null ? customer.getFullName() : null;
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("customerId")
+    public Integer getCustomerId() {
+        return customer != null ? customer.getId() : null;
+    }
+
     @com.fasterxml.jackson.annotation.JsonProperty("customerPhone")
     public String getCustomerPhone() {
         return customer != null ? customer.getPhone() : null;
@@ -52,5 +59,10 @@ public class Appointment {
     @com.fasterxml.jackson.annotation.JsonProperty("branchName")
     public String getBranchName() {
         return branch != null ? branch.getName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("branchId")
+    public Integer getBranchId() {
+        return branch != null ? branch.getId() : null;
     }
 }
