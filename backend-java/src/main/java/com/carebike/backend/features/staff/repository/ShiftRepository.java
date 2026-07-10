@@ -10,6 +10,8 @@ import java.util.List;
 public interface ShiftRepository extends JpaRepository<Shift, Integer> {
     List<Shift> findByBranchId(Integer branchId);
     List<Shift> findByBranchIdAndShiftDateBetween(Integer branchId, java.time.LocalDate startDate, java.time.LocalDate endDate);
+    List<Shift> findByStaffIdAndShiftDate(Integer staffId, java.time.LocalDate shiftDate);
+    boolean existsByStaffIdAndShiftDateAndShiftType(Integer staffId, java.time.LocalDate shiftDate, String shiftType);
     void deleteByBranchId(Integer branchId);
     void deleteByBranchIdAndShiftDateBetween(Integer branchId, java.time.LocalDate startDate, java.time.LocalDate endDate);
 }

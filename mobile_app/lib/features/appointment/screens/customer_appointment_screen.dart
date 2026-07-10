@@ -10,12 +10,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/core/theme/theme.dart';
 import 'package:mobile_app/features/auth/providers/auth_provider.dart';
 import 'package:mobile_app/core/network/web_socket_service.dart';
+import 'package:mobile_app/features/appointment/screens/customer_appointment_detail_screen.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 
 class CustomerAppointmentScreen extends StatefulWidget {
   final bool embedded;
+  final bool isMainTab;
 
-  const CustomerAppointmentScreen({super.key, this.embedded = false});
+  const CustomerAppointmentScreen({
+    super.key,
+    this.embedded = false,
+    this.isMainTab = false,
+  });
 
   @override
   State<CustomerAppointmentScreen> createState() =>
@@ -113,6 +119,11 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
         textColor = AppColors.success;
         text = 'Confirmed';
         break;
+      case 'PAYING':
+        bgColor = const Color(0xFFFFF3CD);
+        textColor = const Color(0xFF856404);
+        text = 'Paying';
+        break;
       case 'COMPLETED':
         bgColor = const Color(0xFFEFF4FF);
         textColor = const Color(0xFF2563EB);
@@ -193,7 +204,6 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
@@ -206,29 +216,45 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              branchName,
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                color: AppColors.ink,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CustomerAppointmentDetailScreen(
+                              appointment: apt,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          _buildStatusBadge(apt['status']),
-                        ],
-                      ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    branchName,
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                      color: AppColors.ink,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusBadge(apt['status']),
+                              ],
+                            ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -271,9 +297,12 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
+          );
+        },
+      ),
           );
 
     if (widget.embedded) {
@@ -293,8 +322,11 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
         backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leadingWidth: 64,
-        leading: Padding(
+        leadingWidth: widget.isMainTab ? 0 : 64,
+        automaticallyImplyLeading: !widget.isMainTab,
+        leading: widget.isMainTab
+            ? const SizedBox.shrink()
+            : Padding(
           padding: const EdgeInsets.only(left: 16),
           child: InkWell(
             onTap: () => Navigator.pop(context),

@@ -11,8 +11,10 @@ import 'package:mobile_app/features/catalog/models/spare_part.dart';
 import 'package:mobile_app/features/auth/providers/auth_provider.dart';
 import 'package:mobile_app/features/branch/models/branch.dart';
 import 'package:mobile_app/features/rescue/widgets/rescue_bottom_sheet.dart';
+import 'package:mobile_app/features/appointment/screens/customer_appointment_screen.dart';
 import 'package:mobile_app/features/branch/screens/branch_map_screen.dart';
 import 'package:mobile_app/features/chat/screens/support_chat_screen.dart';
+import 'package:mobile_app/features/catalog/screens/spare_parts_screen.dart';
 
 // ── Carousel banners (presentational) ────────────────────────────────────────
 class _Banner {
@@ -43,7 +45,7 @@ const _banners = <_Banner>[
 ];
 
 // ── Quick-action tabs (visual shortcuts) ─────────────────────────────────────
-enum _QuickAction { branchMap, support, rescue }
+enum _QuickAction { branchMap, support, rescue, spareParts, bookings }
 
 class _Quick {
   final String label;
@@ -55,11 +57,9 @@ class _Quick {
 const _quick = <_Quick>[
   _Quick('Branches', Icons.pin_drop_rounded, _QuickAction.branchMap),
   _Quick('Rescue', Icons.emergency_rounded, _QuickAction.rescue),
-  _Quick(
-    'Support',
-    Icons.support_agent_rounded,
-    _QuickAction.support,
-  ), // Help Center chat
+  _Quick('Spare Parts', Icons.build_circle_outlined, _QuickAction.spareParts),
+  _Quick('Support', Icons.support_agent_rounded, _QuickAction.support),
+  _Quick('Bookings', Icons.calendar_today_rounded, _QuickAction.bookings),
 ];
 
 class HomeTab extends StatefulWidget {
@@ -85,10 +85,14 @@ class _HomeTabState extends State<HomeTab> {
   Branch? _selectedBranch;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  int? _selectedVehicleId;
   final _noteCtrl = TextEditingController();
   bool _isBooking = false;
   String? _bookingError;
   String? _bookingSuccess;
+
+  List<Map<String, dynamic>> _vehicles = [];
+  bool _vehiclesLoading = true;
 
   // Carousel state (purely presentational)
   final PageController _bannerCtrl = PageController();
@@ -99,6 +103,11 @@ class _HomeTabState extends State<HomeTab> {
   void initState() {
     super.initState();
     _loadBranches();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadVehicles();
+    });
+
     _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || !_bannerCtrl.hasClients) return;
       _bannerCtrl.animateToPage(
@@ -115,6 +124,29 @@ class _HomeTabState extends State<HomeTab> {
     _bannerCtrl.dispose();
     _bannerTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadVehicles() async {
+    final userId = context.read<AuthProvider>().mysqlUser?['userId'];
+    if (userId == null) {
+      setState(() => _vehiclesLoading = false);
+      return;
+    }
+    
+    setState(() => _vehiclesLoading = true);
+    try {
+      final response = await ApiClient.get('/vehicles/owner/$userId');
+      final data = ApiClient.parseResponse(response) as List;
+      setState(() {
+        _vehicles = List<Map<String, dynamic>>.from(data);
+        if (_vehicles.isNotEmpty) {
+          _selectedVehicleId = _vehicles.first['id'] as int;
+        }
+        _vehiclesLoading = false;
+      });
+    } catch (_) {
+      setState(() => _vehiclesLoading = false);
+    }
   }
 
   Future<void> _loadBranches() async {
@@ -326,6 +358,10 @@ class _HomeTabState extends State<HomeTab> {
       setState(() => _bookingError = 'Please select a branch.');
       return;
     }
+    if (_selectedVehicleId == null) {
+      setState(() => _bookingError = 'Please select your vehicle.');
+      return;
+    }
     if (_selectedDate == null || _selectedTime == null) {
       setState(() => _bookingError = 'Please select a date and time.');
       return;
@@ -350,6 +386,7 @@ class _HomeTabState extends State<HomeTab> {
       final response = await ApiClient.post('/appointments', {
         'customerId': userId,
         'branchId': _selectedBranch!.id,
+        'vehicleId': _selectedVehicleId,
         'appointmentDate': dt.toIso8601String(),
         'note': _noteCtrl.text.trim(),
       });
@@ -403,7 +440,12 @@ class _HomeTabState extends State<HomeTab> {
       backgroundColor: AppColors.canvas,
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: _loadBranches,
+        onRefresh: () async {
+          await Future.wait([
+            _loadBranches(),
+            _loadVehicles(),
+          ]);
+        },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.zero,
@@ -721,8 +763,18 @@ class _HomeTabState extends State<HomeTab> {
           context,
           MaterialPageRoute(builder: (_) => const SupportChatScreen()),
         );
+      case _QuickAction.spareParts:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SparePartsScreen()),
+        );
       case _QuickAction.rescue:
         RescueBottomSheet.show(context);
+      case _QuickAction.bookings:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomerAppointmentScreen()),
+        );
     }
   }
 
@@ -901,6 +953,93 @@ class _HomeTabState extends State<HomeTab> {
                             )
                             .toList(),
                         onChanged: (v) => setState(() => _selectedBranch = v),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 11),
+
+          // Vehicle selector
+          if (_vehiclesLoading)
+            _fieldShell(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Loading vehicles…',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.inkMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_vehicles.isEmpty)
+            _fieldShell(
+              child: Row(
+                children: [
+                  Icon(Icons.directions_bike_rounded, size: 19, color: AppColors.danger),
+                  const SizedBox(width: 10),
+                  Text(
+                    'No vehicles found. Please add a vehicle first.',
+                    style: TextStyle(fontSize: 13, color: AppColors.danger),
+                  ),
+                ],
+              ),
+            )
+          else
+            _fieldShell(
+              child: Row(
+                children: [
+                  Icon(Icons.directions_bike_rounded, size: 19, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: _selectedVehicleId,
+                        isExpanded: true,
+                        isDense: true,
+                        hint: Text(
+                          'Select your vehicle',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.inkMuted,
+                          ),
+                        ),
+                        icon: Icon(
+                          Icons.expand_more_rounded,
+                          color: AppColors.inkMuted,
+                        ),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
+                        ),
+                        items: _vehicles
+                            .map(
+                              (v) => DropdownMenuItem<int>(
+                                value: v['id'] as int,
+                                child: Text(
+                                  '${v['vehicleName']} - ${v['licensePlate'] ?? 'N/A'}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedVehicleId = v),
                       ),
                     ),
                   ),

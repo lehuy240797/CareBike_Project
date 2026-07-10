@@ -32,6 +32,9 @@ public class MaintenanceHistoryService {
     private final AppointmentRepository appointmentRepository;
     private final LoyaltyService loyaltyService;
     private final ObjectMapper objectMapper;
+    private final com.carebike.backend.features.staff.repository.StaffRepository staffRepository;
+    private final com.carebike.backend.features.staff.repository.ShiftRepository shiftRepository;
+    private final com.carebike.backend.features.vehicle.repository.VehicleRepository vehicleRepository;
 
     // Không dùng final
     private SimpMessagingTemplate messagingTemplate;
@@ -42,12 +45,18 @@ public class MaintenanceHistoryService {
             UserRepository userRepository,
             BranchRepository branchRepository,
             AppointmentRepository appointmentRepository,
-            LoyaltyService loyaltyService) {
+            LoyaltyService loyaltyService,
+            com.carebike.backend.features.staff.repository.StaffRepository staffRepository,
+            com.carebike.backend.features.staff.repository.ShiftRepository shiftRepository,
+            com.carebike.backend.features.vehicle.repository.VehicleRepository vehicleRepository) {
         this.maintenanceRepository = maintenanceRepository;
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
         this.appointmentRepository = appointmentRepository;
         this.loyaltyService = loyaltyService;
+        this.staffRepository = staffRepository;
+        this.shiftRepository = shiftRepository;
+        this.vehicleRepository = vehicleRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -75,6 +84,30 @@ public class MaintenanceHistoryService {
 
         Integer appointmentId = ensureCompletedAppointment(request, customer, branch);
 
+        // KIỂM TRA CA LÀM VIỆC CỦA NHÂN VIÊN
+        if (request.getServiceDetails() != null && request.getServiceDetails().trim().startsWith("{")) {
+            try {
+                Map<String, Object> invoice = objectMapper.readValue(
+                        request.getServiceDetails(),
+                        new TypeReference<Map<String, Object>>() {}
+                );
+                String staffCode = (String) invoice.get("staffCode");
+                if (staffCode != null && !staffCode.isBlank() && !staffCode.equals("N/A")) {
+                    com.carebike.backend.features.staff.entity.Staff staff = staffRepository.findByStaffCode(staffCode)
+                            .orElseThrow(() -> new RuntimeException("Mã nhân viên không hợp lệ."));
+                    
+                    List<com.carebike.backend.features.staff.entity.Shift> shiftsToday = 
+                        shiftRepository.findByStaffIdAndShiftDate(staff.getId(), java.time.LocalDate.now());
+                    
+                    if (shiftsToday == null || shiftsToday.isEmpty()) {
+                        throw new RuntimeException("Lỗi: Nhân viên " + staff.getFullName() + " không có lịch làm việc trong ngày hôm nay.");
+                    }
+                }
+            } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+                // Ignore parsing errors here, handled later or not critical for validation
+            }
+        }
+
         MaintenanceHistory record = new MaintenanceHistory();
         record.setCustomer(customer);
         record.setServiceDate(request.getServiceDate());
@@ -84,6 +117,16 @@ public class MaintenanceHistoryService {
         record.setBranch(branch);
 
         MaintenanceHistory saved = maintenanceRepository.save(record);
+
+        if (request.getCurrentKm() != null && request.getCurrentKm() > 0 && appointmentId != null) {
+            appointmentRepository.findById(appointmentId).ifPresent(appointment -> {
+                com.carebike.backend.features.vehicle.entity.Vehicle vehicle = appointment.getVehicle();
+                if (vehicle != null) {
+                    vehicle.setCurrentKm(request.getCurrentKm());
+                    vehicleRepository.save(vehicle);
+                }
+            });
+        }
 
         if (request.getTotalCost() != null) {
             loyaltyService.addSpending(customer, request.getTotalCost());
@@ -153,5 +196,42 @@ public class MaintenanceHistoryService {
         } catch (Exception ignored) {
             return serviceDetails;
         }
+    }
+
+    @Transactional
+    public MaintenanceHistory createFromAppointment(Integer appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
+
+        if (!"PAYING".equals(appointment.getStatus())) {
+            throw new RuntimeException("Appointment is not in PAYING state");
+        }
+
+        appointment.setStatus("COMPLETED");
+        appointmentRepository.save(appointment);
+
+        MaintenanceHistory record = new MaintenanceHistory();
+        record.setCustomer(appointment.getCustomer());
+        record.setServiceDate(java.time.LocalDate.now());
+        record.setCurrentKm(appointment.getCurrentKm());
+        record.setServiceDetails(withAppointmentId(appointment.getInvoiceDetails(), appointmentId));
+        record.setTotalCost(appointment.getTotalCost());
+        record.setBranch(appointment.getBranch());
+
+        MaintenanceHistory saved = maintenanceRepository.save(record);
+
+        if (appointment.getCurrentKm() != null && appointment.getCurrentKm() > 0) {
+            com.carebike.backend.features.vehicle.entity.Vehicle vehicle = appointment.getVehicle();
+            if (vehicle != null) {
+                vehicle.setCurrentKm(appointment.getCurrentKm());
+                vehicleRepository.save(vehicle);
+            }
+        }
+
+        if (appointment.getTotalCost() != null) {
+            loyaltyService.addSpending(appointment.getCustomer(), appointment.getTotalCost());
+        }
+
+        return saved;
     }
 }

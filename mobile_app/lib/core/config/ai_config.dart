@@ -2,7 +2,7 @@
 
 const String visionApiBaseUrl = String.fromEnvironment(
   'VISION_API_URL',
-  defaultValue: 'http://10.0.2.2:8000',
+  defaultValue: 'http://192.168.1.59:8000',
 );
 
 /// The YOLO model detects defects, not the part type, so we label the scanned

@@ -17,6 +17,7 @@ import BranchDashboard from './pages/BranchDashboard';
 import SparePartManagement from './pages/SparePartManagement';
 import BranchShiftManagement from './pages/BranchShiftManagement';
 import BranchRequestHistory from './pages/BranchRequestHistory';
+import BranchStaffManagement from './pages/BranchStaffManagement';
 
 const DashboardRouter = () => {
   const { user } = useAuth();
@@ -39,6 +40,7 @@ const App = () => {
               
               {/* Branch Routes */}
               <Route element={<RoleRoute allowedRoles={['BRANCH']} />}>
+                <Route path="branch-staff" element={<BranchStaffManagement />} />
                 <Route path="shifts" element={<BranchShiftManagement />} />
                 <Route path="history" element={<BranchRequestHistory />} />
               </Route>

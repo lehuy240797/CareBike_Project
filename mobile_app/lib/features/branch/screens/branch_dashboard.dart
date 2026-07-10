@@ -39,7 +39,7 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
   @override
   void initState() {
     super.initState();
-    // Raise the emergency alarm for any brand-new, unaccepted SOS ΓÇö from any tab.
+    // Raise the emergency alarm for any brand-new, unaccepted SOS — from any tab.
     _sosSub = RescueStore.instance.onNewSos.listen(_handleNewSos);
   }
 
@@ -164,6 +164,8 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
     );
   }
 
+  int _pendingAptCount = 0;
+
   @override
   Widget build(BuildContext context) {
     context.watch<ThemeController>(); // rebuild on dark-mode toggle
@@ -181,6 +183,7 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
     final List<Widget> pages = [
       _BranchHomeTab(
         auth: auth,
+        pendingAptCount: _pendingAptCount,
         onScanQR: () {
           if (branchId == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -199,7 +202,12 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
           ? BranchRescueScreen(branchId: branchId)
           : const Center(child: Text('Loading branch data...')),
       branchId != null
-          ? _BranchAppointmentTab(branchId: branchId)
+          ? _BranchAppointmentTab(
+              branchId: branchId,
+              onPendingCountChanged: (count) {
+                if (mounted) setState(() => _pendingAptCount = count);
+              },
+            )
           : const Center(child: Text('Loading branch data...')),
       _BranchProfileTab(),
     ];
@@ -314,10 +322,13 @@ class _BranchHomeTab extends StatelessWidget {
   final AuthProvider auth;
   final VoidCallback onScanQR;
   final VoidCallback onViewRescues;
+  final int pendingAptCount;
+  
   const _BranchHomeTab({
     required this.auth,
     required this.onScanQR,
     required this.onViewRescues,
+    required this.pendingAptCount,
   });
 
   @override
@@ -412,7 +423,7 @@ class _BranchHomeTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Live rescue stats + SOS queue ΓÇö rebuilds whenever the store changes.
+          // Live rescue stats + SOS queue — rebuilds whenever the store changes.
           ListenableBuilder(
             listenable: RescueStore.instance,
             builder: (context, _) {
@@ -424,7 +435,7 @@ class _BranchHomeTab extends StatelessWidget {
                       Expanded(
                         child: _buildStatCard(
                           title: 'Pending appointments',
-                          value: '0',
+                          value: '$pendingAptCount',
                           icon: Icons.calendar_today_rounded,
                           color: const Color(0xFF2563EB),
                         ),
@@ -612,7 +623,7 @@ class _BranchHomeTab extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  'SOS ΓÇö NEEDS RESPONSE',
+                  'SOS — NEEDS RESPONSE',
                   style: GoogleFonts.poppins(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
@@ -697,7 +708,7 @@ class _BranchHomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'ΓÜá∩╕Å $issue',
+            '⚠️ $issue',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -778,7 +789,12 @@ class _BranchHomeTab extends StatelessWidget {
 /// Appointments tab: fetch and show pending appointments
 class _BranchAppointmentTab extends StatefulWidget {
   final int branchId;
-  const _BranchAppointmentTab({required this.branchId});
+  final ValueChanged<int>? onPendingCountChanged;
+  
+  const _BranchAppointmentTab({
+    required this.branchId,
+    this.onPendingCountChanged,
+  });
 
   @override
   State<_BranchAppointmentTab> createState() => _BranchAppointmentTabState();
@@ -797,21 +813,30 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
 
     // Initialize WebSocket connection to listen for new appointments in real-time
     WebSocketService.connectBranchAppointments(widget.branchId, (
-      newAppointment,
+      updatedAppointment,
     ) {
       if (mounted) {
-        setState(() {
-          _pendingApts.insert(0, newAppointment);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('≡ƒÜ¿ New maintenance appointment! Please check.'),
-            backgroundColor: Colors.blue,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 4),
-          ),
-        );
+        _fetchAppointments();
+        final status = updatedAppointment['status']?.toString().toUpperCase();
+        if (status == 'PENDING') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('≡ƒÜ¿ New maintenance appointment! Please check.'),
+              backgroundColor: Colors.blue,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else if (status == 'COMPLETED') {
+           ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('✅ Customer has paid their bill!'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     });
   }
@@ -856,7 +881,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
             .where((apt) => _appointmentStatus(apt) == 'PENDING')
             .toList();
         final confirmedApts = appointments
-            .where((apt) => _appointmentStatus(apt) == 'CONFIRMED')
+            .where((apt) => _appointmentStatus(apt) == 'CONFIRMED' || _appointmentStatus(apt) == 'PAYING')
             .toList();
         final completedApts = appointments
             .where((apt) => _appointmentStatus(apt) == 'COMPLETED')
@@ -873,6 +898,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
             _completedApts = completedApts;
             _isLoading = false;
           });
+          widget.onPendingCountChanged?.call(pendingApts.length);
         }
       } else {
         throw Exception("Failed to retrieve data");
@@ -1281,24 +1307,89 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
                       ],
                     ),
                   ] else if (isConfirmed) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => _updateAppointmentStatus(
-                          context,
-                          apt['id'],
-                          'COMPLETED',
-                        ),
-                        icon: const Icon(Icons.done_all),
-                        label: const Text(
-                          'COMPLETE MAINTENANCE',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.info,
+                    if (_appointmentStatus(apt) == 'PAYING') ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            try {
+                              final response = await ApiClient.put(
+                                '/appointments/${apt['id']}/pay',
+                                {},
+                              );
+                              ApiClient.parseResponse(response);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Thanh toán thành công!'),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                                _fetchAppointments();
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Lỗi: $e'),
+                                    backgroundColor: AppColors.danger,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.payment_rounded),
+                          label: const Text(
+                            'CONFIRM PAID & COMPLETE',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                          ),
                         ),
                       ),
-                    ),
+                    ] else ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            final customerId =
+                                apt['customer']?['id'] ?? apt['customerId'];
+                            if (customerId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Customer data missing.'),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                              return;
+                            }
+                            final completed = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BranchMaintenanceBillScreen(
+                                  branchId: widget.branchId,
+                                  customerId: customerId as int,
+                                  customerName: customerName,
+                                  appointment: apt,
+                                ),
+                              ),
+                            );
+                            if (completed == true && mounted) {
+                              _fetchAppointments();
+                            }
+                          },
+                          icon: const Icon(Icons.receipt_long_rounded),
+                          label: const Text(
+                            'CREATE TEMPORARY BILL',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.info,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

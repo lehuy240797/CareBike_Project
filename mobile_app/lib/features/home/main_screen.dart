@@ -28,6 +28,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int? _connectedCustomerId;
   int _historyRefreshKey = 0;
+  int _homeRefreshKey = 0;
 
   static const _destinations = [
     NavigationDestination(
@@ -342,7 +343,7 @@ class _MainScreenState extends State<MainScreen> {
     // not short-circuited and actually repaint on toggle. State is preserved by
     // the persistent State objects, so no data is re-fetched.
     final tabs = <Widget>[
-      HomeTab(),
+      HomeTab(key: ValueKey(_homeRefreshKey)),
       VehiclesTab(),
       HistoryTab(key: ValueKey(_historyRefreshKey)),
       ProfileTab(),
@@ -426,6 +427,7 @@ class _MainScreenState extends State<MainScreen> {
     return InkWell(
       onTap: () => setState(() {
         _currentIndex = index;
+        if (index == 0) _homeRefreshKey++;
         if (index == 2) _historyRefreshKey++;
       }),
       highlightColor: Colors.transparent,

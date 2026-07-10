@@ -21,6 +21,8 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
+    private final com.carebike.backend.features.vehicle.repository.VehicleRepository vehicleRepository;
+    private com.carebike.backend.features.maintenance.service.MaintenanceHistoryService maintenanceHistoryService;
 
     // Không dùng final nữa để có thể gán giá trị sau khi khởi động
     private SimpMessagingTemplate messagingTemplate;
@@ -29,10 +31,12 @@ public class AppointmentService {
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             UserRepository userRepository,
-            BranchRepository branchRepository) {
+            BranchRepository branchRepository,
+            com.carebike.backend.features.vehicle.repository.VehicleRepository vehicleRepository) {
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
+        this.vehicleRepository = vehicleRepository;
     }
 
     // Tiêm Bean vào một cách an toàn
@@ -40,6 +44,12 @@ public class AppointmentService {
     @Lazy
     public void setMessagingTemplate(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
+    }
+
+    @Autowired
+    @Lazy
+    public void setMaintenanceHistoryService(com.carebike.backend.features.maintenance.service.MaintenanceHistoryService maintenanceHistoryService) {
+        this.maintenanceHistoryService = maintenanceHistoryService;
     }
 
     @Transactional
@@ -57,6 +67,13 @@ public class AppointmentService {
         Appointment appointment = new Appointment();
         appointment.setCustomer(customer);
         appointment.setBranch(branch);
+        
+        if (request.getVehicleId() != null) {
+            com.carebike.backend.features.vehicle.entity.Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                    .orElseThrow(() -> new RuntimeException("Phương tiện không tồn tại: " + request.getVehicleId()));
+            appointment.setVehicle(vehicle);
+        }
+
         appointment.setAppointmentDate(request.getAppointmentDate());
         appointment.setNote(request.getNote());
         appointment.setStatus(
@@ -118,5 +135,66 @@ public class AppointmentService {
         }
 
         return updatedAppointment;
+    }
+
+    @Transactional
+    public Appointment saveInvoice(java.util.Map<String, Object> request) {
+        Integer appointmentId = request.get("appointmentId") != null ? ((Number) request.get("appointmentId")).intValue() : null;
+        Appointment appointment;
+        
+        if (appointmentId == null) {
+            appointment = new Appointment();
+            User customer = userRepository.findById(((Number) request.get("customerId")).intValue())
+                    .orElseThrow(() -> new RuntimeException("Customer not found"));
+            Branch branch = branchRepository.findById(((Number) request.get("branchId")).intValue())
+                    .orElseThrow(() -> new RuntimeException("Branch not found"));
+            appointment.setCustomer(customer);
+            appointment.setBranch(branch);
+            appointment.setAppointmentDate(java.time.LocalDateTime.now());
+            appointment.setNote("Walk-in repair order");
+            if (request.get("vehicleId") != null) {
+                Integer vehicleId = ((Number) request.get("vehicleId")).intValue();
+                appointment.setVehicle(vehicleRepository.findById(vehicleId).orElse(null));
+            }
+        } else {
+            appointment = appointmentRepository.findById(appointmentId)
+                    .orElseThrow(() -> new RuntimeException("Appointment not found"));
+        }
+
+        appointment.setStatus("PAYING");
+        appointment.setInvoiceDetails((String) request.get("invoiceDetails"));
+        appointment.setTotalCost(new java.math.BigDecimal(request.get("totalCost").toString()));
+        if (request.get("currentKm") != null) {
+            appointment.setCurrentKm(((Number) request.get("currentKm")).intValue());
+        }
+        
+        Appointment saved = appointmentRepository.save(appointment);
+
+        if (messagingTemplate != null) {
+            String customerDestination = "/topic/customers/" + saved.getCustomer().getId() + "/appointments";
+            messagingTemplate.convertAndSend(customerDestination, saved);
+        }
+
+        return saved;
+    }
+
+    @Transactional
+    public com.carebike.backend.features.maintenance.entity.MaintenanceHistory pay(Integer id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+                
+        if (!"PAYING".equals(appointment.getStatus())) {
+            throw new RuntimeException("Chỉ có thể thanh toán khi ở trạng thái PAYING");
+        }
+        
+        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history = 
+            maintenanceHistoryService.createFromAppointment(id);
+            
+        if (messagingTemplate != null) {
+            String customerDestination = "/topic/customers/" + appointment.getCustomer().getId() + "/appointments";
+            messagingTemplate.convertAndSend(customerDestination, appointment);
+        }
+        
+        return history;
     }
 }

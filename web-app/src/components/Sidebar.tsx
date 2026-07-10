@@ -10,7 +10,7 @@ import {
   Layers,
   CalendarDays,
   History,
-
+  Wrench,
 } from 'lucide-react';
 
 interface NavItem {
@@ -42,8 +42,14 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: '/staff',
     icon: <UserCog size={20} aria-hidden="true" />,
-    label: 'Staff',
+    label: 'Branch Managers',
     roles: ['ADMIN'],
+  },
+  {
+    to: '/branch-staff',
+    icon: <Users size={20} aria-hidden="true" />,
+    label: 'Mechanics',
+    roles: ['BRANCH'],
   },
   {
     to: '/branches',
@@ -55,6 +61,18 @@ const NAV_ITEMS: NavItem[] = [
     to: '/customers',
     icon: <Users size={20} aria-hidden="true" />,
     label: 'Customers',
+    roles: ['ADMIN'],
+  },
+  {
+    to: '/categories',
+    icon: <Layers size={20} aria-hidden="true" />,
+    label: 'Categories',
+    roles: ['ADMIN'],
+  },
+  {
+    to: '/spare-parts',
+    icon: <Wrench size={20} aria-hidden="true" />,
+    label: 'Spare Parts',
     roles: ['ADMIN'],
   },
   {

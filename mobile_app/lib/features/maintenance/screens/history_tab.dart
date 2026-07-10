@@ -20,7 +20,8 @@ class HistoryTab extends StatefulWidget {
 }
 
 class _HistoryTabState extends State<HistoryTab> {
-  List<MaintenanceRecord> _records = [];
+  List<MaintenanceRecord> _rescueRecords = [];
+  List<MaintenanceRecord> _serviceRecords = [];
   bool _isLoading = true;
   String? _error;
   StreamSubscription? _wsSubscription;
@@ -57,21 +58,34 @@ class _HistoryTabState extends State<HistoryTab> {
       final data = ApiClient.parseResponse(response);
 
       if (data is List) {
-        _records = data
-            .map((e) => MaintenanceRecord.fromJson(e as Map<String, dynamic>))
-            .toList();
-        _records.sort((a, b) {
+        _rescueRecords = [];
+        _serviceRecords = [];
+        for (var e in data) {
+          final record = MaintenanceRecord.fromJson(e as Map<String, dynamic>);
+          if (record.serviceDetails != null && record.serviceDetails!.contains('"sourceType":"APPOINTMENT"')) {
+            _serviceRecords.add(record);
+          } else {
+            _rescueRecords.add(record);
+          }
+        }
+        
+        int compareRecords(MaintenanceRecord a, MaintenanceRecord b) {
           final dateCompare = b.serviceDate.compareTo(a.serviceDate);
           if (dateCompare != 0) return dateCompare;
           return b.id.compareTo(a.id);
-        });
+        }
+        
+        _rescueRecords.sort(compareRecords);
+        _serviceRecords.sort(compareRecords);
       } else {
-        _records = [];
+        _rescueRecords = [];
+        _serviceRecords = [];
       }
     } on ApiException catch (e) {
       // Catch 404 (no history -> new customer)
       if (e.statusCode == 404) {
-        _records = []; // Empty list to show the "no history" UI
+        _rescueRecords = [];
+        _serviceRecords = []; // Empty list to show the "no history" UI
       } else {
         _error = e.message;
       }
@@ -87,8 +101,8 @@ class _HistoryTabState extends State<HistoryTab> {
     }
   }
 
-  String _totalCost() {
-    final total = _records.fold<double>(0, (s, r) => s + (r.totalCost ?? 0));
+  String _totalCost(List<MaintenanceRecord> records) {
+    final total = records.fold<double>(0, (s, r) => s + (r.totalCost ?? 0));
     final n = total
         .toStringAsFixed(0)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.');
@@ -122,136 +136,140 @@ class _HistoryTabState extends State<HistoryTab> {
             indicatorWeight: 3,
             labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w800),
             tabs: const [
-              Tab(text: 'History'),
-              Tab(text: 'Appointments'),
+              Tab(text: 'Rescue'),
+              Tab(text: 'Appointment'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: _load,
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.cloud_off_outlined,
-                            size: 52,
-                            color: AppColors.edge,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            style: TextStyle(color: AppColors.inkMuted),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: _load,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : _records.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.6,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.build_circle_outlined,
-                                  size: 72,
-                                  color: AppColors.edge,
-                                ),
-                                SizedBox(height: 16),
-                                Text(
-                                  'No maintenance history yet',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView(
-                      physics:
-                          const AlwaysScrollableScrollPhysics(), // Always allow pull-to-refresh
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                      children: [
-                        // Summary header
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'THIS YEAR',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.faint,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${_records.length} services · ${_totalCost()}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.ink,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                width: 40,
-                                height: 40,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryMuted,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.build_rounded,
-                                  size: 22,
-                                  color: AppColors.primaryHover,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        for (var i = 0; i < _records.length; i++) ...[
-                          _RecordCard(record: _records[i], index: i),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
-            ),
-            const CustomerAppointmentScreen(embedded: true),
+            _buildRecordTab(_rescueRecords, 'No rescue history yet'),
+            _buildRecordTab(_serviceRecords, 'No appointment history yet'),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRecordTab(List<MaintenanceRecord> records, String emptyMessage) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+              ),
+            )
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 52,
+                    color: AppColors.edge,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: TextStyle(color: AppColors.inkMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _load,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : records.isEmpty
+          ? ListView(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.build_circle_outlined,
+                          size: 72,
+                          color: AppColors.edge,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          emptyMessage,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : ListView(
+              physics:
+                  const AlwaysScrollableScrollPhysics(), // Always allow pull-to-refresh
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                // Summary header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'THIS YEAR',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.faint,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${records.length} records · ${_totalCost(records)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryMuted,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.build_rounded,
+                          size: 22,
+                          color: AppColors.primaryHover,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                for (var i = 0; i < records.length; i++) ...[
+                  _RecordCard(record: records[i], index: i),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
     );
   }
 }

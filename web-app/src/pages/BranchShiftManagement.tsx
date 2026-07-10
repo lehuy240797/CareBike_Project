@@ -120,6 +120,27 @@ const BranchShiftManagement = () => {
     setSchedule((prev) => {
       const currentSelected = prev[day]?.[shift] || [];
       const isSelected = currentSelected.includes(staffId);
+
+      if (!isSelected) {
+        const shiftConfig = SHIFT_TYPES.find((s) => s.value === shift);
+        if (shiftConfig && currentSelected.length >= shiftConfig.max) {
+          toast.error(`This shift has already reached the maximum of ${shiftConfig.max} employees!`);
+          return prev;
+        }
+
+        let shiftsCount = 0;
+        SHIFT_TYPES.forEach((s) => {
+          if (prev[day]?.[s.value]?.includes(staffId)) {
+            shiftsCount++;
+          }
+        });
+
+        if (shiftsCount >= 2) {
+          toast.error('This employee has already been scheduled for the maximum of two shifts in a single day!');
+          return prev;
+        }
+      }
+
       const newSelected = isSelected
         ? currentSelected.filter((id) => id !== staffId)
         : [...currentSelected, staffId];
@@ -262,34 +283,37 @@ const BranchShiftManagement = () => {
         <div className={tableScroll}>
           <table className={`${dataTable} min-w-[980px]`}>
             <thead>
-              <tr>
-                <th className={thCell} style={{ width: '16%' }}>Date</th>
-                {SHIFT_TYPES.map((shift) => (
-                  <th key={shift.value} className={thCell} style={{ width: '28%' }}>
-                    <div className="flex flex-col gap-1">
-                      <span>{shift.label}</span>
-                      <span className="font-pop text-[0.72rem] font-semibold normal-case tracking-normal text-ink-muted">{shift.time}</span>
+              <tr className="divide-x divide-black">
+                <th className={`${thCell} !border-black !bg-orange-200 !text-ink !font-black text-[0.8rem] !text-center`} style={{ width: '16%' }}>Date</th>
+                {SHIFT_TYPES.map((shift, colIndex) => (
+                  <th key={shift.value} className={`${thCell} !border-black !bg-orange-200 !text-ink !font-black !text-center`} style={{ width: '28%' }}>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[0.8rem]">{shift.label}</span>
+                      <span className="font-pop text-[0.75rem] font-bold normal-case tracking-normal !text-ink">{shift.time}</span>
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {currentDays.map((day) => (
-                <tr key={day.dateStr} className="transition-colors hover:bg-primary-light/50">
-                  <td className={`${tdCell} align-top`}>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-pop text-sm font-extrabold text-ink">{day.display}</span>
-                      <span className="font-orb text-[0.65rem] font-semibold uppercase tracking-[1.8px] text-primary">{day.dateStr}</span>
+              {currentDays.map((day, rowIndex) => (
+                <tr key={day.dateStr} className="divide-x divide-black transition-colors hover:bg-primary-light/50">
+                  <td className={`${tdCell} !border-black align-top !bg-orange-200`}>
+                    <div className="flex flex-col items-center justify-center gap-1 h-full pt-2">
+                      <span className="font-pop text-sm font-extrabold text-ink !text-center">{day.display}</span>
+                      <span className="font-orb text-[0.65rem] !font-black uppercase tracking-[1.8px] !text-ink !text-center">{day.dateStr}</span>
                     </div>
                   </td>
-                  {SHIFT_TYPES.map((shift) => {
+                  {SHIFT_TYPES.map((shift, colIndex) => {
                     const selectedIds = schedule[day.dateStr]?.[shift.value] || [];
                     const selectedStaff = staffs.filter((staff) => selectedIds.includes(staff.id!));
                     const isFull = selectedIds.length === shift.max;
+                    
+                    // Checkerboard pattern for assignment cells
+                    const isOrange = (rowIndex + colIndex) % 2 === 0;
 
                     return (
-                      <td key={shift.value} className={`${tdCell} align-top`}>
+                      <td key={shift.value} className={`${tdCell} !border-black align-top ${isOrange ? 'bg-orange-50/50' : 'bg-white'}`}>
                         <div className="flex flex-col gap-3">
                           <div className="flex items-center justify-between gap-2 text-[0.82rem] font-bold">
                             <span className={isFull ? 'text-primary' : 'text-ink-muted'}>
@@ -300,7 +324,7 @@ const BranchShiftManagement = () => {
                             )}
                           </div>
 
-                          <div className={isEditing ? 'flex max-h-44 flex-col gap-2 overflow-y-auto rounded-2xl border border-edge bg-canvas p-2' : 'flex flex-wrap gap-2'}>
+                          <div className={isEditing ? 'flex max-h-44 flex-col gap-2 overflow-y-auto rounded-2xl border border-edge bg-canvas p-2' : 'flex flex-col items-center gap-2'}>
                             {isEditing ? (
                               staffs.map((staff) => {
                                 const isSelected = selectedIds.includes(staff.id!);
@@ -322,7 +346,7 @@ const BranchShiftManagement = () => {
                                 );
                               })
                             ) : selectedStaff.length === 0 ? (
-                              <span className="rounded-xl border border-dashed border-edge bg-canvas px-3 py-2 text-sm font-semibold text-ink-muted">
+                              <span className="rounded-xl border border-dashed border-edge bg-canvas px-3 py-2 text-sm font-semibold text-ink-muted text-center w-full block">
                                 No staff assigned
                               </span>
                             ) : (

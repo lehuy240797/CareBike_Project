@@ -35,6 +35,8 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
   bool _needStaffTravel = true;
   bool _needVehicleTransport = false;
   String _searchQuery = '';
+  int _selectedCategoryIndex = 0;
+  List<String> _categories = ['All'];
   Map<String, dynamic>? _staffInfo;
   List<dynamic> _spareParts = [];
 
@@ -90,7 +92,20 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     _loadSpareParts();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final response = await ApiClient.get('/categories');
+      final data = ApiClient.parseResponse(response) as List;
+      final cats = data.map((e) => e['name'].toString()).toList();
+      if (!mounted) return;
+      setState(() {
+        _categories = ['All', ...cats];
+      });
+    } catch (_) {}
   }
 
   @override
@@ -162,9 +177,16 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                   ),
                 )
                 .toList();
+      final category = _categories[_selectedCategoryIndex];
+      List<dynamic> filteredData = data;
+      if (category != 'All') {
+        filteredData =
+            data.where((part) => (part['category'] ?? part['categoryName']) == category).toList();
+      }
+
       if (!mounted) return;
       setState(() {
-        _spareParts = [...filteredServices, ...data];
+        _spareParts = [...filteredServices, ...filteredData];
         _isLoadingParts = false;
       });
     } catch (e) {
@@ -292,9 +314,15 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
     }
 
     try {
-      final response = await ApiClient.get('/staff/lookup?code=$code');
+      final response = await ApiClient.get('/staff/verify-shift?code=$code');
       if (response.statusCode != 200) {
-        throw Exception('Staff with this code was not found.');
+        try {
+          final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+          if (errorData['message'] != null) {
+            throw Exception(errorData['message']);
+          }
+        } catch (_) {}
+        throw Exception('Staff with this code was not found or not on shift.');
       }
       final data =
           jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
@@ -313,7 +341,7 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification error: $e'),
+          content: Text('${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -454,6 +482,56 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
               ),
               const SizedBox(height: 10),
               SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  itemBuilder: (ctx, i) {
+                    final isSelected = i == _selectedCategoryIndex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedCategoryIndex = i;
+                        });
+                        _loadSpareParts();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? AppColors.primary
+                                    : AppColors.edge,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _categories[i],
+                          style: TextStyle(
+                            color:
+                                isSelected
+                                    ? Colors.white
+                                    : AppColors.inkMuted,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
                 height: 220,
                 child: _isLoadingParts
                     ? Center(
@@ -471,12 +549,41 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: Icon(
-                                part['isService'] == true
-                                    ? Icons.handyman_rounded
-                                    : Icons.settings_rounded,
-                                color: AppColors.primary,
-                              ),
+                              leading:
+                                  part['imageUrl'] != null &&
+                                          part['imageUrl'].toString().isNotEmpty
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(
+                                            part['imageUrl'],
+                                            width: 50,
+                                            height: 50,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (ctx, _, __) => Icon(
+                                                  part['isService'] == true
+                                                      ? Icons.handyman_rounded
+                                                      : Icons.settings_rounded,
+                                                  color: AppColors.primary,
+                                                ),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryLight,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            part['isService'] == true
+                                                ? Icons.handyman_rounded
+                                                : Icons.settings_rounded,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
                               title: Text(
                                 part['name'],
                                 maxLines: 1,

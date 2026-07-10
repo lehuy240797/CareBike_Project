@@ -775,9 +775,9 @@ const formatCurrency = (amount = 0) =>
   `${Math.round(Number(amount || 0)).toLocaleString('vi-VN')} VNĐ`;
 
 const parseInvoice = (value?: string) => {
-  if (!value?.startsWith('{')) return null;
+  if (!value?.trim()?.startsWith('{')) return null;
   try {
-    return JSON.parse(value) as InvoiceData;
+    return JSON.parse(value.trim()) as InvoiceData;
   } catch (error) {
     console.error('Failed to parse invoice JSON', error);
     return null;

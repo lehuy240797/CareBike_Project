@@ -5,6 +5,7 @@
  * and backdrop click.
  */
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalOverlayProps {
@@ -39,7 +40,7 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
     }
   };
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-[4px] animate-fade-in [background:rgba(15,23,42,0.55)]"
       role="dialog"
@@ -72,6 +73,8 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default ModalOverlay;

@@ -96,7 +96,7 @@ public class GeminiApiService {
 
         // Truy xuất danh sách lịch hẹn đã hoàn thành, sắp xếp theo thời gian giảm dần
         List<Appointment> completedAppointments = appointmentRepository
-                .findByCustomerIdOrderByAppointmentDateDesc(customerId)
+                .findByCustomer_IdOrderByAppointmentDateDesc(customerId)
                 .stream()
                 .filter(a -> "COMPLETED".equalsIgnoreCase(a.getStatus()))
                 .limit(3)
@@ -104,7 +104,7 @@ public class GeminiApiService {
 
         // Truy xuất lịch sử bảo dưỡng chi tiết, giới hạn 3 bản ghi gần nhất
         List<MaintenanceHistory> maintenanceRecords = maintenanceHistoryRepository
-                .findByCustomerIdOrderByServiceDateDesc(customerId)
+                .findByCustomer_IdOrderByServiceDateDescIdDesc(customerId)
                 .stream()
                 .limit(3)
                 .collect(Collectors.toList());

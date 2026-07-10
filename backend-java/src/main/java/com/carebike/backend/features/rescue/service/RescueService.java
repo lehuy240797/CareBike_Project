@@ -37,6 +37,9 @@ public class RescueService {
     @Autowired
     private StaffRepository staffRepository;
 
+    @Autowired
+    private com.carebike.backend.features.staff.repository.ShiftRepository shiftRepository;
+
     // 1. Xóa @Autowired ở đây
     private SimpMessagingTemplate messagingTemplate;
 
@@ -131,8 +134,24 @@ public class RescueService {
     @Autowired
     private com.carebike.backend.features.maintenance.repository.MaintenanceHistoryRepository maintenanceHistoryRepository;
 
+    @Autowired
+    private com.carebike.backend.features.customer.service.LoyaltyService loyaltyService;
+
     @Transactional
     public void completeRescue(Long rescueId, com.carebike.backend.features.rescue.dto.RescueCompleteRequest request) {
+        // KIỂM TRA NHÂN VIÊN CÓ CA LÀM KHÔNG
+        if (request.staffCode() != null && !request.staffCode().isBlank()) {
+            com.carebike.backend.features.staff.entity.Staff staff = staffRepository.findByStaffCode(request.staffCode())
+                    .orElseThrow(() -> new RuntimeException("Mã nhân viên không hợp lệ."));
+            
+            java.util.List<com.carebike.backend.features.staff.entity.Shift> shiftsToday = 
+                shiftRepository.findByStaffIdAndShiftDate(staff.getId(), java.time.LocalDate.now());
+            
+            if (shiftsToday == null || shiftsToday.isEmpty()) {
+                throw new RuntimeException("Lỗi: Nhân viên " + staff.getFullName() + " không có lịch làm việc trong ngày hôm nay.");
+            }
+        }
+
         // 1. Cập nhật trạng thái và thông tin bổ sung
         Rescue rescue = rescueRepository.findById(rescueId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ca cứu hộ"));
@@ -219,6 +238,11 @@ public class RescueService {
         history.setBranch(rescue.getBranch());
 
         maintenanceHistoryRepository.save(history);
+
+        // 4. Tích điểm và cộng tổng chi tiêu
+        if (totalCost != null && rescue.getCustomer() != null) {
+            loyaltyService.addSpending(rescue.getCustomer(), totalCost);
+        }
     }
 
     // ── CÔNG THỨC HAVERSINE ──

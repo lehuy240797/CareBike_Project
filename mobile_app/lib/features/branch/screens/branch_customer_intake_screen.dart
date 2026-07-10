@@ -315,14 +315,23 @@ class _BranchMaintenanceBillScreenState
   final _customerPhoneCtrl = TextEditingController();
   final _vehicleNameCtrl = TextEditingController();
   final _vehiclePlateCtrl = TextEditingController();
+  final _engineCapacityCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   final Map<int, Map<String, dynamic>> _cart = {};
 
+  int _selectedCategoryIndex = 0;
+  List<String> _categories = ['All'];
   bool _staffVerified = false;
+  bool _kmVerified = false;
   bool _isLoadingParts = true;
   String _searchQuery = '';
   Map<String, dynamic>? _staffInfo;
   List<dynamic> _spareParts = [];
+  
+  List<Map<String, dynamic>> _customerVehicles = [];
+  Map<String, dynamic>? _selectedVehicle;
+  bool _isOtherVehicle = false;
+  bool _isLoadingVehicles = false;
 
   final double _laborCost = 100000;
 
@@ -338,7 +347,60 @@ class _BranchMaintenanceBillScreenState
   void initState() {
     super.initState();
     _prefillCustomerVehicleInfo();
+    _loadCategories();
     _loadSpareParts();
+    if (widget.appointment == null) {
+      _loadCustomerVehicles();
+      _loadCustomerPhone();
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final response = await ApiClient.get('/categories');
+      final data = ApiClient.parseResponse(response) as List;
+      final cats = data.map((e) => e['name'].toString()).toList();
+      if (!mounted) return;
+      setState(() {
+        _categories = ['All', ...cats];
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _loadCustomerPhone() async {
+    try {
+      final response = await ApiClient.get('/users/${widget.customerId}');
+      final data = ApiClient.parseResponse(response);
+      if (mounted && data is Map && data['phone'] != null && _customerPhoneCtrl.text.isEmpty) {
+        setState(() {
+          _customerPhoneCtrl.text = data['phone'].toString();
+        });
+      }
+    } catch (e) {
+      debugPrint("Could not fetch user phone: $e");
+    }
+  }
+
+  Future<void> _loadCustomerVehicles() async {
+    setState(() => _isLoadingVehicles = true);
+    try {
+      final response = await ApiClient.get('/vehicles/owner/${widget.customerId}');
+      final data = ApiClient.parseResponse(response) as List;
+      if (!mounted) return;
+      setState(() {
+        _customerVehicles = List<Map<String, dynamic>>.from(data);
+        _isLoadingVehicles = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingVehicles = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load vehicles: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   @override
@@ -348,6 +410,7 @@ class _BranchMaintenanceBillScreenState
     _customerPhoneCtrl.dispose();
     _vehicleNameCtrl.dispose();
     _vehiclePlateCtrl.dispose();
+    _engineCapacityCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -356,13 +419,37 @@ class _BranchMaintenanceBillScreenState
     final appointment = widget.appointment;
     _customerPhoneCtrl.text = appointment?['customerPhone']?.toString() ?? '';
 
-    final vehicle = appointment?['vehicle'];
-    final vehicleMap = vehicle is Map ? vehicle : null;
-    final vehicleName =
-        '${vehicleMap?['brand'] ?? ''} ${vehicleMap?['vehicleName'] ?? vehicleMap?['model'] ?? ''}'
-            .trim();
-    _vehicleNameCtrl.text = vehicleName;
-    _vehiclePlateCtrl.text = vehicleMap?['licensePlate']?.toString() ?? '';
+    if (appointment != null) {
+      final vName = appointment['vehicleName']?.toString() ?? '';
+      final vBrand = appointment['vehicleBrand']?.toString() ?? '';
+      final engineCap = appointment['engineCapacity']?.toString() ?? '';
+      
+      _vehicleNameCtrl.text = '$vBrand $vName'.trim();
+      _vehiclePlateCtrl.text = appointment['vehiclePlate']?.toString() ?? '';
+      _engineCapacityCtrl.text = engineCap;
+    } else {
+      // Walk-in default to manual entry until they select a vehicle
+      _isOtherVehicle = true;
+    }
+  }
+
+  void _onVehicleSelected(Map<String, dynamic>? vehicle) {
+    setState(() {
+      _selectedVehicle = vehicle;
+      if (vehicle != null) {
+        _isOtherVehicle = false;
+        final vName = vehicle['vehicleName']?.toString() ?? '';
+        final vBrand = vehicle['brand']?.toString() ?? '';
+        _vehicleNameCtrl.text = '$vBrand $vName'.trim();
+        _vehiclePlateCtrl.text = vehicle['licensePlate']?.toString() ?? '';
+        _engineCapacityCtrl.text = vehicle['engineCapacity']?.toString() ?? '';
+      } else {
+        _isOtherVehicle = true;
+        _vehicleNameCtrl.clear();
+        _vehiclePlateCtrl.clear();
+        _engineCapacityCtrl.clear();
+      }
+    });
   }
 
   double _calculateTotal() {
@@ -380,18 +467,23 @@ class _BranchMaintenanceBillScreenState
     try {
       final response = await ApiClient.get('/spare-parts?search=$_searchQuery');
       final data = ApiClient.parseResponse(response) as List;
-      final filteredServices = _searchQuery.isEmpty
-          ? _commonServices
-          : _commonServices
-                .where(
-                  (s) => s['name'].toString().toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ),
-                )
-                .toList();
+      
+      final category = _categories[_selectedCategoryIndex];
+      List<dynamic> parts = data;
+      if (category != 'All') {
+        parts =
+            data.where((part) => (part['category'] ?? part['categoryName']) == category).toList();
+      }
+          
+      final filteredServices = category == 'All' 
+          ? (_searchQuery.isEmpty
+              ? _commonServices
+              : _commonServices.where((s) => s['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase())).toList())
+          : [];
+
       if (!mounted) return;
       setState(() {
-        _spareParts = [...filteredServices, ...data];
+        _spareParts = [...filteredServices, ...parts];
         _isLoadingParts = false;
       });
     } catch (e) {
@@ -419,9 +511,15 @@ class _BranchMaintenanceBillScreenState
     }
 
     try {
-      final response = await ApiClient.get('/staff/lookup?code=$code');
+      final response = await ApiClient.get('/staff/verify-shift?code=$code');
       if (response.statusCode != 200) {
-        throw Exception('Staff with this code was not found.');
+        try {
+          final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+          if (errorData['message'] != null) {
+            throw Exception(errorData['message']);
+          }
+        } catch (_) {}
+        throw Exception('Staff with this code was not found or not on shift.');
       }
       final data =
           jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
@@ -440,7 +538,7 @@ class _BranchMaintenanceBillScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification error: $e'),
+          content: Text('${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -483,6 +581,16 @@ class _BranchMaintenanceBillScreenState
       );
       return;
     }
+    
+    if (_currentKmCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Vui lòng nhập số KM hiện tại của xe.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
 
     Navigator.push<bool>(
       context,
@@ -492,6 +600,7 @@ class _BranchMaintenanceBillScreenState
           customerId: widget.customerId,
           customerName: widget.customerName,
           appointment: widget.appointment,
+          selectedVehicleId: _selectedVehicle?['id'],
           currentKm: int.tryParse(_currentKmCtrl.text.trim()) ?? 0,
           customerPhone: _customerPhoneCtrl.text.trim(),
           vehicleName: _vehicleNameCtrl.text.trim(),
@@ -551,7 +660,7 @@ class _BranchMaintenanceBillScreenState
                           controller: _staffCodeCtrl,
                           textCapitalization: TextCapitalization.characters,
                           decoration: const InputDecoration(
-                            hintText: 'CBS-0001',
+                            hintText: 'CBS-xxxx',
                             prefixIcon: Icon(Icons.badge_rounded),
                           ),
                         ),
@@ -566,9 +675,34 @@ class _BranchMaintenanceBillScreenState
             const SizedBox(height: 20),
             _sectionTitle('STEP 2: Repair details', Icons.speed_rounded),
             const SizedBox(height: 10),
+            if (widget.appointment == null) ...[
+              if (_isLoadingVehicles)
+                const Center(child: CircularProgressIndicator())
+              else
+                DropdownButtonFormField<Map<String, dynamic>?>(
+                  value: _selectedVehicle,
+                  decoration: const InputDecoration(
+                    labelText: 'Select Vehicle',
+                    prefixIcon: Icon(Icons.two_wheeler_rounded),
+                  ),
+                  items: [
+                    ..._customerVehicles.map((v) => DropdownMenuItem(
+                          value: v,
+                          child: Text('${v['brand']} ${v['vehicleName']} - ${v['licensePlate']}'),
+                        )),
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Other (Manual entry)'),
+                    ),
+                  ],
+                  onChanged: _onVehicleSelected,
+                ),
+              const SizedBox(height: 10),
+            ],
             TextField(
               controller: _customerPhoneCtrl,
               keyboardType: TextInputType.phone,
+              enabled: widget.appointment == null,
               decoration: const InputDecoration(
                 hintText: 'Customer phone',
                 prefixIcon: Icon(Icons.phone_rounded),
@@ -578,6 +712,7 @@ class _BranchMaintenanceBillScreenState
             TextField(
               controller: _vehicleNameCtrl,
               textCapitalization: TextCapitalization.words,
+              enabled: widget.appointment == null && _isOtherVehicle,
               decoration: const InputDecoration(
                 hintText: 'Vehicle name (e.g. Honda Vision)',
                 prefixIcon: Icon(Icons.two_wheeler_rounded),
@@ -587,6 +722,7 @@ class _BranchMaintenanceBillScreenState
             TextField(
               controller: _vehiclePlateCtrl,
               textCapitalization: TextCapitalization.characters,
+              enabled: widget.appointment == null && _isOtherVehicle,
               decoration: const InputDecoration(
                 hintText: 'License plate',
                 prefixIcon: Icon(Icons.pin_rounded),
@@ -594,14 +730,48 @@ class _BranchMaintenanceBillScreenState
             ),
             const SizedBox(height: 10),
             TextField(
-              controller: _currentKmCtrl,
-              keyboardType: TextInputType.number,
+              controller: _engineCapacityCtrl,
+              enabled: widget.appointment == null && _isOtherVehicle,
               decoration: const InputDecoration(
-                hintText: 'Current km (optional)',
+                hintText: 'Engine capacity (Phân khối)',
                 prefixIcon: Icon(Icons.speed_rounded),
               ),
             ),
-            if (_staffVerified) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _currentKmCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Current km (required)',
+                      prefixIcon: Icon(Icons.speed_rounded),
+                    ),
+                    onChanged: (v) {
+                      if (_kmVerified) setState(() => _kmVerified = false);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    if (_currentKmCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Please enter current KM first.'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _kmVerified = true);
+                  },
+                  child: const Text('Confirm'),
+                ),
+              ],
+            ),
+            if (_staffVerified && _kmVerified) ...[
               const SizedBox(height: 20),
               _sectionTitle(
                 'STEP 3: Select services / spare parts',
@@ -618,6 +788,56 @@ class _BranchMaintenanceBillScreenState
                   _searchQuery = value;
                   _loadSpareParts();
                 },
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  itemBuilder: (ctx, i) {
+                    final isSelected = i == _selectedCategoryIndex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedCategoryIndex = i;
+                        });
+                        _loadSpareParts();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? AppColors.primary
+                                    : AppColors.edge,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _categories[i],
+                          style: TextStyle(
+                            color:
+                                isSelected
+                                    ? Colors.white
+                                    : AppColors.inkMuted,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -638,12 +858,22 @@ class _BranchMaintenanceBillScreenState
                             surfaceTintColor: Colors.transparent,
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: Icon(
-                                part['isService'] == true
-                                    ? Icons.handyman_rounded
-                                    : Icons.settings_rounded,
-                                color: AppColors.primary,
-                              ),
+                              leading: part['isService'] == true
+                                  ? Icon(
+                                      Icons.handyman_rounded,
+                                      color: AppColors.primary,
+                                      size: 32,
+                                    )
+                                  : (part['imageUrl'] != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(part['imageUrl'].toString(), width: 36, height: 36, fit: BoxFit.cover),
+                                        )
+                                      : Icon(
+                                          Icons.settings_rounded,
+                                          color: AppColors.primary,
+                                          size: 32,
+                                        )),
                               title: Text(
                                 part['name'].toString(),
                                 maxLines: 1,
@@ -881,6 +1111,7 @@ class _MaintenanceTemporaryBillScreen extends StatefulWidget {
   final int customerId;
   final String customerName;
   final Map<String, dynamic>? appointment;
+  final int? selectedVehicleId;
   final int currentKm;
   final String customerPhone;
   final String vehicleName;
@@ -896,6 +1127,7 @@ class _MaintenanceTemporaryBillScreen extends StatefulWidget {
     required this.customerId,
     required this.customerName,
     required this.appointment,
+    this.selectedVehicleId,
     required this.currentKm,
     required this.customerPhone,
     required this.vehicleName,
@@ -924,21 +1156,15 @@ class _MaintenanceTemporaryBillScreenState
       final appointmentId = _appointmentId();
       final invoice = _invoiceData(appointmentId: appointmentId);
       final response = await _runStep(
-        'save maintenance bill',
-        () => ApiClient.post('/maintenance', {
-          'serviceDate': DateTime.now().toIso8601String().split('T')[0],
-          'currentKm': widget.currentKm,
-          'serviceDetails': jsonEncode(invoice),
-          'totalCost': widget.totalAmount,
+        'send temporary bill',
+        () => ApiClient.post('/appointments/invoice', {
+          'appointmentId': appointmentId,
           'customerId': widget.customerId,
           'branchId': widget.branchId,
-          'appointmentId': appointmentId,
-          'createAppointment': widget.appointment == null,
-          'appointmentDate': DateTime.now().toIso8601String(),
-          'appointmentNote': widget.appointment == null
-              ? 'Walk-in repair order'
-              : widget.appointment?['note']?.toString(),
-          'appointmentStatus': 'COMPLETED',
+          'vehicleId': widget.selectedVehicleId ?? widget.appointment?['vehicleId'],
+          'currentKm': widget.currentKm,
+          'invoiceDetails': jsonEncode(invoice),
+          'totalCost': widget.totalAmount,
         }),
       );
       ApiClient.parseResponse(response);
@@ -948,23 +1174,23 @@ class _MaintenanceTemporaryBillScreenState
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text('Completed', textAlign: TextAlign.center),
+          title: const Text('Bill Sent', textAlign: TextAlign.center),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.check_circle_rounded,
-                color: AppColors.success,
+                Icons.send_rounded,
+                color: AppColors.primary,
                 size: 60,
               ),
               const SizedBox(height: 14),
               const Text(
-                'Customer has paid successfully.',
+                'The temporary bill has been sent to the customer.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Repair history has been saved to the system.',
+                'Please ask the customer to open their app to review and pay.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.inkMuted, fontSize: 13),
               ),
@@ -979,7 +1205,7 @@ class _MaintenanceTemporaryBillScreenState
                   Navigator.pop(context, true);
                 },
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.success,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Done'),
@@ -1151,15 +1377,15 @@ class _MaintenanceTemporaryBillScreenState
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.done_all_rounded),
+                      : const Icon(Icons.send_rounded),
                   label: Text(
                     _isSubmitting
-                        ? 'PROCESSING...'
-                        : 'CONFIRM PAID & COMPLETED',
+                        ? 'SENDING...'
+                        : 'SEND BILL TO CUSTOMER',
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.success,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                   ),
                 ),

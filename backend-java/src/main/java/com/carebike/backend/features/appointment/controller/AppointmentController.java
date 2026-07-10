@@ -90,6 +90,23 @@ public class AppointmentController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping("/invoice")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('BRANCH', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> saveInvoice(@RequestBody Map<String, Object> request) {
+        Appointment saved = appointmentService.saveInvoice(request);
+        return ResponseEntity.ok(toResponse(saved));
+    }
+
+    @PutMapping("/{id}/pay")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('BRANCH', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> pay(@PathVariable Integer id) {
+        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history = appointmentService.pay(id);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("message", "Thanh toán thành công");
+        response.put("historyId", history.getId());
+        return ResponseEntity.ok(response);
+    }
+
     private Map<String, Object> toResponse(Appointment appointment) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("id", appointment.getId());
@@ -101,6 +118,15 @@ public class AppointmentController {
         response.put("customerPhone", appointment.getCustomerPhone());
         response.put("branchId", appointment.getBranchId());
         response.put("branchName", appointment.getBranchName());
+        response.put("vehicleId", appointment.getVehicleId());
+        response.put("vehicleName", appointment.getVehicleName());
+        response.put("vehicleBrand", appointment.getVehicleBrand());
+        response.put("vehiclePlate", appointment.getVehiclePlate());
+        response.put("engineCapacity", appointment.getEngineCapacity());
+
+        response.put("invoiceDetails", appointment.getInvoiceDetails());
+        response.put("totalCost", appointment.getTotalCost());
+        response.put("currentKm", appointment.getCurrentKm());
         return response;
     }
 }
