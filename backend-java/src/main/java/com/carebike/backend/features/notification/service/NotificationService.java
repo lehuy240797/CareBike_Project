@@ -30,7 +30,7 @@ public class NotificationService {
     @Transactional
     public void registerDeviceToken(User user, DeviceTokenRequest request) {
         if (user == null || request == null || isBlank(request.getToken())) {
-            throw new RuntimeException("FCM token không hợp lệ.");
+            throw new RuntimeException("Invalid FCM token.");
         }
 
         DeviceToken deviceToken = deviceTokenRepository.findFirstByFcmToken(request.getToken())
@@ -57,12 +57,12 @@ public class NotificationService {
         }
         Branch branch = appointment.getBranch();
         User manager = branch != null ? branch.getManager() : null;
-        String customerName = displayName(appointment.getCustomer(), "Khách hàng");
+        String customerName = displayName(appointment.getCustomer(), "Customer");
 
         fcmService.sendToUser(
                 manager,
-                "Lịch hẹn mới",
-                customerName + " vừa đặt lịch sửa chữa tại chi nhánh.",
+                "New appointment",
+                customerName + " just booked a repair appointment at your branch.",
                 appointmentData("NEW_APPOINTMENT", appointment)
         );
     }
@@ -73,12 +73,12 @@ public class NotificationService {
         }
         Branch branch = appointment.getBranch();
         User manager = branch != null ? branch.getManager() : null;
-        String customerName = displayName(appointment.getCustomer(), "Khách hàng");
+        String customerName = displayName(appointment.getCustomer(), "Customer");
 
         fcmService.sendToUser(
                 manager,
-                "Khách hàng đã hủy lịch hẹn",
-                customerName + " đã hủy lịch hẹn sửa chữa.",
+                "Appointment cancelled by customer",
+                customerName + " cancelled their repair appointment.",
                 appointmentData("APPOINTMENT_CANCELLED_BY_CUSTOMER", appointment)
         );
     }
@@ -91,16 +91,16 @@ public class NotificationService {
         String status = appointment.getStatus();
         String branchName = appointment.getBranch() != null ? appointment.getBranch().getName() : "CareBike";
         String title = switch (status) {
-            case "CONFIRMED" -> "Lịch hẹn đã được xác nhận";
-            case "COMPLETED" -> "Xe đã bảo dưỡng xong";
-            case "CANCELLED" -> "Lịch hẹn đã bị hủy";
-            default -> "Cập nhật lịch hẹn";
+            case "CONFIRMED" -> "Appointment confirmed";
+            case "COMPLETED" -> "Bike service completed";
+            case "CANCELLED" -> "Appointment cancelled";
+            default -> "Appointment update";
         };
         String body = switch (status) {
-            case "CONFIRMED" -> branchName + " đã xác nhận lịch hẹn của bạn.";
-            case "COMPLETED" -> "Dịch vụ tại " + branchName + " đã hoàn tất.";
-            case "CANCELLED" -> "Lịch hẹn tại " + branchName + " đã bị hủy.";
-            default -> "Lịch hẹn của bạn vừa được cập nhật trạng thái.";
+            case "CONFIRMED" -> branchName + " confirmed your appointment.";
+            case "COMPLETED" -> "Your service at " + branchName + " has been completed.";
+            case "CANCELLED" -> "Your appointment at " + branchName + " was cancelled.";
+            default -> "Your appointment status has been updated.";
         };
 
         fcmService.sendToUser(
@@ -117,12 +117,12 @@ public class NotificationService {
         }
         Branch branch = rescue.getBranch();
         User manager = branch != null ? branch.getManager() : null;
-        String customerName = displayName(rescue.getCustomer(), "Khách hàng");
+        String customerName = displayName(rescue.getCustomer(), "Customer");
 
         fcmService.sendToUser(
                 manager,
-                "Yêu cầu cứu hộ khẩn cấp",
-                customerName + " vừa gửi yêu cầu cứu hộ gần chi nhánh.",
+                "Emergency rescue request",
+                customerName + " just sent a rescue request near your branch.",
                 rescueData("NEW_RESCUE", rescue)
         );
     }
@@ -135,16 +135,16 @@ public class NotificationService {
         String status = rescue.getStatus();
         String branchName = rescue.getBranch() != null ? rescue.getBranch().getName() : "CareBike";
         String title = switch (status) {
-            case "ACCEPTED" -> "Chi nhánh đã nhận cứu hộ";
-            case "COMPLETED" -> "Ca cứu hộ đã hoàn tất";
-            case "CANCELLED" -> "Ca cứu hộ đã bị hủy";
-            default -> "Cập nhật cứu hộ";
+            case "ACCEPTED" -> "Rescue accepted";
+            case "COMPLETED" -> "Rescue completed";
+            case "CANCELLED" -> "Rescue cancelled";
+            default -> "Rescue update";
         };
         String body = switch (status) {
-            case "ACCEPTED" -> branchName + " đã tiếp nhận và đang đến hỗ trợ bạn.";
-            case "COMPLETED" -> "Ca cứu hộ của bạn đã được hoàn tất.";
-            case "CANCELLED" -> "Yêu cầu cứu hộ của bạn đã bị hủy.";
-            default -> "Yêu cầu cứu hộ của bạn vừa được cập nhật trạng thái.";
+            case "ACCEPTED" -> branchName + " accepted your request and is on the way.";
+            case "COMPLETED" -> "Your rescue request has been completed.";
+            case "CANCELLED" -> "Your rescue request was cancelled.";
+            default -> "Your rescue request status has been updated.";
         };
 
         fcmService.sendToUser(

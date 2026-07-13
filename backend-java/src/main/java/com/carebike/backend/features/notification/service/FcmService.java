@@ -4,6 +4,7 @@ import com.carebike.backend.features.auth.entity.User;
 import com.carebike.backend.features.notification.entity.DeviceToken;
 import com.carebike.backend.features.notification.repository.DeviceTokenRepository;
 import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -17,6 +18,8 @@ import java.util.Map;
 
 @Service
 public class FcmService {
+
+    private static final String HIGH_IMPORTANCE_CHANNEL_ID = "carebike_high_importance";
 
     private final DeviceTokenRepository deviceTokenRepository;
 
@@ -46,6 +49,12 @@ public class FcmService {
                     .putAllData(sanitizeData(data))
                     .setAndroidConfig(AndroidConfig.builder()
                             .setPriority(AndroidConfig.Priority.HIGH)
+                            .setNotification(AndroidNotification.builder()
+                                    .setChannelId(HIGH_IMPORTANCE_CHANNEL_ID)
+                                    .setPriority(AndroidNotification.Priority.HIGH)
+                                    .setDefaultSound(true)
+                                    .setDefaultVibrateTimings(true)
+                                    .build())
                             .build())
                     .build();
 
