@@ -10,5 +10,5 @@ import java.util.List;
 public interface MaintenanceHistoryRepository extends JpaRepository<MaintenanceHistory, Integer> {
 
     /** Fetch all maintenance records for a given customer, newest first */
-    List<MaintenanceHistory> findByCustomerIdOrderByServiceDateDesc(Integer customerId);
+    List<MaintenanceHistory> findByCustomer_IdOrderByServiceDateDescIdDesc(Integer customerId);
 }

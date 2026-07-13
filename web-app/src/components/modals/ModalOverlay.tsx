@@ -5,18 +5,23 @@
  * and backdrop click.
  */
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalOverlayProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  isOpen?: boolean;
+  icon?: React.ReactNode;
   /** Optional extra CSS class on the content panel (e.g., 'modal-content--wide') */
   contentClass?: string;
 }
 
-const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOverlayProps) => {
+const ModalOverlay = ({ title, onClose, children, isOpen = true, icon, contentClass = '' }: ModalOverlayProps) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  if (!isOpen) return null;
 
   // Close on Escape key
   useEffect(() => {
@@ -39,7 +44,7 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
     }
   };
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-[4px] animate-fade-in [background:rgba(15,23,42,0.55)]"
       role="dialog"
@@ -56,7 +61,10 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 border-b border-edge px-6 pb-4 pt-5">
-          <h2 className="m-0 text-[1.0625rem] font-bold tracking-tight text-ink">{title}</h2>
+          <div className="flex min-w-0 items-center gap-2">
+            {icon && <span className="shrink-0 text-primary">{icon}</span>}
+            <h2 className="m-0 text-[1.0625rem] font-bold tracking-tight text-ink">{title}</h2>
+          </div>
           <button
             type="button"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border-none bg-transparent p-0 text-ink-muted transition-all duration-200 ease-spring hover:rotate-90 hover:bg-primary-light hover:text-primary"
@@ -72,6 +80,8 @@ const ModalOverlay = ({ title, onClose, children, contentClass = '' }: ModalOver
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default ModalOverlay;

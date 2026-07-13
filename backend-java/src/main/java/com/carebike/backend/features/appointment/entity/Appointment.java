@@ -18,11 +18,18 @@ public class Appointment {
 
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private User customer;
 
     @ManyToOne
     @JoinColumn(name = "branch_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Branch branch;
+
+    @ManyToOne
+    @JoinColumn(name = "vehicle_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private com.carebike.backend.features.vehicle.entity.Vehicle vehicle;
 
     @Column(name = "appointment_date", nullable = false)
     private LocalDateTime appointmentDate;
@@ -30,10 +37,20 @@ public class Appointment {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(columnDefinition = "TEXT")
+    private String invoiceDetails;
+
+    @Column(name = "total_cost", precision = 12, scale = 2)
+    private java.math.BigDecimal totalCost;
+
+    @Column(name = "current_km")
+    private Integer currentKm;
+
     /**
      * PENDING   → freshly booked
      * CONFIRMED → branch has acknowledged
-     * COMPLETED → service done
+     * PAYING    → branch sent temporary bill
+     * COMPLETED → service done and paid
      * CANCELLED → cancelled by customer or branch
      */
     @Column(nullable = false, length = 20)
@@ -44,6 +61,11 @@ public class Appointment {
         return customer != null ? customer.getFullName() : null;
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("customerId")
+    public Integer getCustomerId() {
+        return customer != null ? customer.getId() : null;
+    }
+
     @com.fasterxml.jackson.annotation.JsonProperty("customerPhone")
     public String getCustomerPhone() {
         return customer != null ? customer.getPhone() : null;
@@ -52,5 +74,35 @@ public class Appointment {
     @com.fasterxml.jackson.annotation.JsonProperty("branchName")
     public String getBranchName() {
         return branch != null ? branch.getName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("branchId")
+    public Integer getBranchId() {
+        return branch != null ? branch.getId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("vehicleId")
+    public Integer getVehicleId() {
+        return vehicle != null ? vehicle.getId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("vehicleName")
+    public String getVehicleName() {
+        return vehicle != null ? vehicle.getVehicleName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("vehicleBrand")
+    public String getVehicleBrand() {
+        return vehicle != null ? vehicle.getBrand() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("vehiclePlate")
+    public String getVehiclePlate() {
+        return vehicle != null ? vehicle.getLicensePlate() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("engineCapacity")
+    public Integer getEngineCapacity() {
+        return vehicle != null ? vehicle.getEngineCapacity() : null;
     }
 }

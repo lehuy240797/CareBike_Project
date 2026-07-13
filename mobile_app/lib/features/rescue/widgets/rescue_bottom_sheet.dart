@@ -262,7 +262,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
                     hint: const Text('Select a vehicle...'),
                     items: _myVehicles.map((v) => DropdownMenuItem(
                       value: v,
-                      child: Text('${v['brand']} ${v['model']} - Plate: ${v['licensePlate']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                      child: Text('${v['brand']} ${v['vehicleName']} - Plate: ${v['licensePlate']}', style: const TextStyle(fontWeight: FontWeight.w500)),
                     )).toList(),
                     onChanged: (val) => setState(() => _selectedVehicle = val),
                   ),

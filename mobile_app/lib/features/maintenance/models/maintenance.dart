@@ -21,7 +21,8 @@ class MaintenanceRecord {
         currentKm: json['currentKm'] as int?,
         serviceDetails: json['serviceDetails'] as String?,
         totalCost: (json['totalCost'] as num?)?.toDouble(),
-        branchName: (json['branch'] as Map<String, dynamic>?)?['name'] as String?,
+        branchName: json['branchName'] as String? ??
+            (json['branch'] as Map<String, dynamic>?)?['name'] as String?,
       );
 
   String get formattedCost {

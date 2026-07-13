@@ -4,6 +4,7 @@ class SparePart {
   final double price;
   final String? description;
   final String? imageUrl;
+  final int? categoryId;
 
   SparePart({
     required this.id,
@@ -11,6 +12,7 @@ class SparePart {
     required this.price,
     this.description,
     this.imageUrl,
+    this.categoryId,
   });
 
   factory SparePart.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class SparePart {
       price: (json['price'] as num).toDouble(),
       description: json['description'] as String?,
       imageUrl: json['imageUrl'] as String?,
+      categoryId: json['categoryId'] as int?,
     );
   }
 }

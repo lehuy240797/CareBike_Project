@@ -40,7 +40,11 @@ const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) 
       setNotFound(false);
       try {
         const data = await getVehicleByOwner(customerId);
-        setVehicle(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setVehicle(data[0]);
+        } else {
+          setNotFound(true);
+        }
       } catch (err: unknown) {
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 404) {
@@ -113,8 +117,9 @@ const VehicleModal = ({ customerId, customerName, onClose }: VehicleModalProps) 
               { label: 'Brand',          value: vehicle.brand },
               { label: 'Type',           value: typeLabel(vehicle.vehicleType) },
               { label: 'Model name',     value: vehicle.vehicleName },
-              { label: 'Chassis number', value: vehicle.chassisNumber || '—', mono: true },
-              { label: 'Engine number',  value: vehicle.engineNumber  || '—', mono: true },
+              { label: 'License plate',  value: vehicle.licensePlate  || '—', mono: true },
+              { label: 'Engine capacity',value: vehicle.engineCapacity ? `${vehicle.engineCapacity} cc` : '—' },
+              { label: 'Current mileage',value: vehicle.currentKm ? `${vehicle.currentKm.toLocaleString()} km` : '—' },
             ].map(({ label, value, mono }) => (
               <div key={label} className="flex items-center gap-4 border-b border-edge px-4 py-3 last:border-b-0 even:bg-stone-50">
                 <span className="min-w-[9rem] shrink-0 text-sm font-semibold text-ink-muted">{label}</span>

@@ -9,3 +9,5 @@ node_modules/
 .env.*
 .dart_appdata/
 .dart_localappdata/
+__pycache__/
+*.pyc

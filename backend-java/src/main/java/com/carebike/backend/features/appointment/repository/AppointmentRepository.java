@@ -8,7 +8,7 @@ import java.util.List;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Integer> {
-    List<Appointment> findByCustomerIdOrderByAppointmentDateDesc(Integer customerId);
-    List<Appointment> findByBranchIdAndStatusOrderByAppointmentDateAsc(Integer branchId, String status);
-    List<Appointment> findByBranchIdOrderByAppointmentDateDesc(Integer branchId);
+    List<Appointment> findByCustomer_IdOrderByAppointmentDateDesc(Integer customerId);
+    List<Appointment> findByBranch_IdAndStatusOrderByAppointmentDateAsc(Integer branchId, String status);
+    List<Appointment> findByBranch_IdOrderByAppointmentDateDesc(Integer branchId);
 }

@@ -5,9 +5,6 @@ import { dashTitle, eyebrow, pageSubtitle } from '../ui/styles';
 const BranchDashboard: React.FC = () => {
     const { user } = useAuth();
 
-    // Get the branch ID from the current user (kept in case other stats APIs need it)
-    const currentBranchId = (user as any)?.branchId;
-
     return (
         <div className="mx-auto max-w-[72rem]">
             <div className="mb-10 animate-fade-up">

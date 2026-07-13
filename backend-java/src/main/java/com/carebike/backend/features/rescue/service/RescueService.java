@@ -41,6 +41,9 @@ public class RescueService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private com.carebike.backend.features.staff.repository.ShiftRepository shiftRepository;
+
     // 1. Xóa @Autowired ở đây
     private SimpMessagingTemplate messagingTemplate;
 
@@ -143,8 +146,24 @@ public class RescueService {
     @Autowired
     private com.carebike.backend.features.maintenance.repository.MaintenanceHistoryRepository maintenanceHistoryRepository;
 
+    @Autowired
+    private com.carebike.backend.features.customer.service.LoyaltyService loyaltyService;
+
     @Transactional
     public void completeRescue(Long rescueId, com.carebike.backend.features.rescue.dto.RescueCompleteRequest request) {
+        // KIỂM TRA NHÂN VIÊN CÓ CA LÀM KHÔNG
+        if (request.staffCode() != null && !request.staffCode().isBlank()) {
+            com.carebike.backend.features.staff.entity.Staff staff = staffRepository.findByStaffCode(request.staffCode())
+                    .orElseThrow(() -> new RuntimeException("Mã nhân viên không hợp lệ."));
+
+            java.util.List<com.carebike.backend.features.staff.entity.Shift> shiftsToday =
+                shiftRepository.findByStaffIdAndShiftDate(staff.getId(), java.time.LocalDate.now());
+
+            if (shiftsToday == null || shiftsToday.isEmpty()) {
+                throw new RuntimeException("Lỗi: Nhân viên " + staff.getFullName() + " không có lịch làm việc trong ngày hôm nay.");
+            }
+        }
+
         // 1. Cập nhật trạng thái và thông tin bổ sung
         Rescue rescue = rescueRepository.findById(rescueId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ca cứu hộ"));
@@ -153,12 +172,12 @@ public class RescueService {
         rescue.setTimeMultiplier(request.timeMultiplier());
         rescue.setDistanceKm(request.distanceKm());
         rescue.setTransportFee(request.transportFee());
-        rescue.setTransportFee(request.transportFee());
         // Do not save rescue yet, we will save it after calculating totalCost
 
         // 2. Tạo hóa đơn dưới dạng JSON
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         com.fasterxml.jackson.databind.node.ObjectNode invoiceNode = mapper.createObjectNode();
+        invoiceNode.put("sourceType", "RESCUE");
 
         // Customer & Vehicle Info
         invoiceNode.put("customerName", rescue.getCustomer() != null ? rescue.getCustomer().getFullName() : "");
@@ -166,7 +185,7 @@ public class RescueService {
         invoiceNode.put("vehicleName", rescue.getVehicle() != null ? rescue.getVehicle().getBrand() + " " + rescue.getVehicle().getVehicleName() : "");
         invoiceNode.put("vehiclePlate", rescue.getVehicle() != null ? rescue.getVehicle().getLicensePlate() : "");
         invoiceNode.put("staffCode", request.staffCode() != null ? request.staffCode() : "N/A");
-        
+
         String staffNameStr = request.staffCode() != null ? request.staffCode() : "N/A";
         if (request.staffCode() != null) {
             com.carebike.backend.features.staff.entity.Staff staff = staffRepository.findByStaffCode(request.staffCode()).orElse(null);
@@ -175,7 +194,7 @@ public class RescueService {
             }
         }
         invoiceNode.put("staffName", staffNameStr);
-        
+
         java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy");
         invoiceNode.put("date", java.time.LocalDateTime.now().format(dtf));
 
@@ -196,11 +215,11 @@ public class RescueService {
                 java.math.BigDecimal itemPrice = item.price().multiply(java.math.BigDecimal.valueOf(multiplier));
                 itemNode.put("price", itemPrice);
                 itemsNode.add(itemNode);
-                
+
                 totalCost = totalCost.add(itemPrice.multiply(java.math.BigDecimal.valueOf(item.quantity())));
             }
         }
-        
+
         if (request.transportFee() != null && request.transportFee().compareTo(java.math.BigDecimal.ZERO) > 0) {
             totalCost = totalCost.add(request.transportFee());
         }
@@ -221,7 +240,7 @@ public class RescueService {
         notificationService.notifyRescueStatusChanged(savedRescue);
 
         // 3. Lưu vào lịch sử bảo dưỡng
-        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history = 
+        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history =
             new com.carebike.backend.features.maintenance.entity.MaintenanceHistory();
         history.setServiceDate(java.time.LocalDate.now());
         history.setCurrentKm(0);
@@ -231,6 +250,11 @@ public class RescueService {
         history.setBranch(rescue.getBranch());
 
         maintenanceHistoryRepository.save(history);
+
+        // 4. Tích điểm và cộng tổng chi tiêu
+        if (totalCost != null && rescue.getCustomer() != null) {
+            loyaltyService.addSpending(rescue.getCustomer(), totalCost);
+        }
     }
 
     // ── CÔNG THỨC HAVERSINE ──

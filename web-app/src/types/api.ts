@@ -5,8 +5,9 @@ export interface VehicleRecord {
   brand: string;
   vehicleType: string;  // 'XE_SO' | 'XE_TAY_GA'
   vehicleName: string;
-  chassisNumber: string | null;
-  engineNumber: string | null;
+  licensePlate: string | null;
+  engineCapacity: number | null;
+  currentKm: number | null;
   owner: { id: number; username: string; fullName: string };
 }
 

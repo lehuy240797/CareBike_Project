@@ -28,3 +28,17 @@ export const apiUpdateShifts = async (branchId: number, startDate: string, endDa
   const response = await apiClient.put(`/staff/shifts/branch/${branchId}?startDate=${startDate}&endDate=${endDate}`, shiftsData);
   return response.data;
 };
+
+export const apiCreateStaff = async (branchId: number, data: Partial<StaffRecord>): Promise<StaffRecord> => {
+  const response = await apiClient.post(`/staff/branch/${branchId}`, data);
+  return response.data;
+};
+
+export const apiUpdateStaff = async (staffId: number, data: Partial<StaffRecord>): Promise<StaffRecord> => {
+  const response = await apiClient.put(`/staff/${staffId}`, data);
+  return response.data;
+};
+
+export const apiDeleteStaff = async (staffId: number): Promise<void> => {
+  await apiClient.delete(`/staff/${staffId}`);
+};
