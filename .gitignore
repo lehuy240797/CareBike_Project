@@ -7,3 +7,5 @@ Thumbs.db
 node_modules/
 .env
 .env.*
+.dart_appdata/
+.dart_localappdata/

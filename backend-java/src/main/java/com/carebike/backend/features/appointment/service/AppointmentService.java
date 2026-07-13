@@ -7,6 +7,7 @@ import com.carebike.backend.features.auth.entity.User;
 import com.carebike.backend.features.auth.repository.UserRepository;
 import com.carebike.backend.features.branch.entity.Branch;
 import com.carebike.backend.features.branch.repository.BranchRepository;
+import com.carebike.backend.features.notification.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -21,6 +22,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
+    private final NotificationService notificationService;
 
     // Không dùng final nữa để có thể gán giá trị sau khi khởi động
     private SimpMessagingTemplate messagingTemplate;
@@ -29,10 +31,12 @@ public class AppointmentService {
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             UserRepository userRepository,
-            BranchRepository branchRepository) {
+            BranchRepository branchRepository,
+            NotificationService notificationService) {
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
+        this.notificationService = notificationService;
     }
 
     // Tiêm Bean vào một cách an toàn
@@ -68,6 +72,7 @@ public class AppointmentService {
             String destination = "/topic/branches/" + savedAppointment.getBranch().getId() + "/appointments";
             messagingTemplate.convertAndSend(destination, savedAppointment);
         }
+        notificationService.notifyAppointmentCreated(savedAppointment);
 
         return savedAppointment;
     }
@@ -88,6 +93,7 @@ public class AppointmentService {
             String branchDestination = "/topic/branches/" + cancelledAppointment.getBranch().getId() + "/appointments";
             messagingTemplate.convertAndSend(branchDestination, cancelledAppointment);
         }
+        notificationService.notifyAppointmentCancelledByCustomer(cancelledAppointment);
 
         return cancelledAppointment;
     }
@@ -112,6 +118,7 @@ public class AppointmentService {
             String customerDestination = "/topic/customers/" + customerId + "/appointments";
             messagingTemplate.convertAndSend(customerDestination, updatedAppointment);
         }
+        notificationService.notifyAppointmentStatusChanged(updatedAppointment);
 
         return updatedAppointment;
     }

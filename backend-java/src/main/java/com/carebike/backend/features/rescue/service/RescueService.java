@@ -12,6 +12,7 @@ import com.carebike.backend.features.branch.repository.BranchRepository;
 import com.carebike.backend.features.auth.repository.UserRepository;
 import com.carebike.backend.features.vehicle.repository.VehicleRepository;
 import com.carebike.backend.features.staff.repository.StaffRepository;
+import com.carebike.backend.features.notification.service.NotificationService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,9 @@ public class RescueService {
 
     @Autowired
     private StaffRepository staffRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // 1. Xóa @Autowired ở đây
     private SimpMessagingTemplate messagingTemplate;
@@ -106,6 +110,7 @@ public class RescueService {
         if (messagingTemplate != null) {
             messagingTemplate.convertAndSend("/topic/branches/" + nearestBranch.getId() + "/rescues", savedRescue);
         }
+        notificationService.notifyRescueCreated(savedRescue);
 
         return savedRescue;
     }
@@ -125,7 +130,14 @@ public class RescueService {
         Rescue rescue = rescueRepository.findById(rescueId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ca cứu hộ"));
         rescue.setStatus(status);
-        return rescueRepository.save(rescue);
+        Rescue savedRescue = rescueRepository.save(rescue);
+        notificationService.notifyRescueStatusChanged(savedRescue);
+        return savedRescue;
+    }
+
+    @Transactional
+    public Rescue acceptRescue(Long rescueId) {
+        return updateRescueStatus(rescueId, "ACCEPTED");
     }
 
     @Autowired
@@ -205,7 +217,8 @@ public class RescueService {
         // Update rescue with total cost and invoice details
         rescue.setTotalCost(totalCost);
         rescue.setInvoiceDetails(detailsString);
-        rescueRepository.save(rescue);
+        Rescue savedRescue = rescueRepository.save(rescue);
+        notificationService.notifyRescueStatusChanged(savedRescue);
 
         // 3. Lưu vào lịch sử bảo dưỡng
         com.carebike.backend.features.maintenance.entity.MaintenanceHistory history = 

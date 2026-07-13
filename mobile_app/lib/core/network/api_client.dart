@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 
 /// Centralized HTTP client for all CareBike API calls.
-/// ĐỔI IP Ở ĐÂY KHI BẠN SANG WIFI KHÁC
+/// Local development uses adb reverse, so WiFi changes do not require code edits.
 class ApiClient {
-  static const String serverIp = '10.0.2.2';
+  static const String serverIp = '127.0.0.1';
   static const String baseUrl = 'http://$serverIp:8080/api';
 
   // ── Auth headers ───────────────────────────────────────────────────────────

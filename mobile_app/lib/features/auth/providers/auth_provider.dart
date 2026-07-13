@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:mobile_app/core/network/api_client.dart';
+import 'package:mobile_app/core/notifications/push_notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -234,6 +235,7 @@ class AuthProvider with ChangeNotifier {
 
     if (response.statusCode == 200) {
       _mysqlUser = jsonDecode(response.body);
+      await PushNotificationService.instance.registerDeviceToken();
       notifyListeners();
     } else {
       final errorData = jsonDecode(response.body);
@@ -243,6 +245,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     try {
+      await PushNotificationService.instance.unregisterDeviceToken();
       await _auth.signOut();
       if (await _googleSignIn.isSignedIn()) {
         await _googleSignIn.disconnect();

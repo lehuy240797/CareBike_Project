@@ -5,6 +5,7 @@ import 'package:mobile_app/firebase_options.dart';
 
 import 'package:mobile_app/features/auth/providers/auth_provider.dart';
 import 'package:mobile_app/app/auth_wrapper.dart';
+import 'package:mobile_app/core/notifications/push_notification_service.dart';
 import 'package:mobile_app/core/theme/theme.dart';
 import 'package:mobile_app/core/theme/theme_controller.dart';
 
@@ -14,6 +15,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await PushNotificationService.instance.initialize();
   // Load the saved light/dark preference before the first frame.
   await ThemeController.instance.load();
   runApp(const CareBikeApp());
