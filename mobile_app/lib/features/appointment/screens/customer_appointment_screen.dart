@@ -79,6 +79,7 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        data.sort(_sortCustomerAppointments);
         if (mounted) {
           setState(() {
             appointments = data;
@@ -101,6 +102,101 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  int _sortCustomerAppointments(dynamic a, dynamic b) {
+    final priorityCompare = _appointmentPriority(
+      a,
+    ).compareTo(_appointmentPriority(b));
+    if (priorityCompare != 0) return priorityCompare;
+
+    final aDate = DateTime.tryParse(a['appointmentDate']?.toString() ?? '');
+    final bDate = DateTime.tryParse(b['appointmentDate']?.toString() ?? '');
+    final dateCompare = (bDate ?? DateTime(1900)).compareTo(
+      aDate ?? DateTime(1900),
+    );
+    if (dateCompare != 0) return dateCompare;
+
+    return _asInt(b['id']).compareTo(_asInt(a['id']));
+  }
+
+  int _appointmentPriority(dynamic appointment) {
+    final status = appointment is Map
+        ? appointment['status']?.toString().toUpperCase()
+        : null;
+    switch (status) {
+      case 'PENDING':
+      case 'CONFIRMED':
+        return 0;
+      default:
+        return 1;
+    }
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  bool _canCancelAppointment(dynamic appointment) {
+    if (appointment is! Map) return false;
+    final status = appointment['status']?.toString().toUpperCase();
+    final invoiceDetails = appointment['invoiceDetails']?.toString().trim();
+    return (status == 'PENDING' || status == 'CONFIRMED') &&
+        (invoiceDetails == null || invoiceDetails.isEmpty);
+  }
+
+  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel appointment?'),
+        content: const Text(
+          'You can cancel before the branch creates a bill for this appointment.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel appointment'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final response = await ApiClient.put(
+        '/appointments/${appointment['id']}/cancel',
+        {},
+      );
+      ApiClient.parseResponse(response);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Appointment cancelled.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      await _fetchAppointments();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not cancel appointment: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   Widget _buildStatusBadge(String status) {
@@ -221,14 +317,17 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(20),
                       onTap: () {
-                        Navigator.push(
+                        Navigator.push<bool>(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CustomerAppointmentDetailScreen(
-                              appointment: apt,
-                            ),
+                            builder: (context) =>
+                                CustomerAppointmentDetailScreen(
+                                  appointment: Map<String, dynamic>.from(apt),
+                                ),
                           ),
-                        );
+                        ).then((updated) {
+                          if (updated == true && mounted) _fetchAppointments();
+                        });
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(18),
@@ -255,54 +354,77 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
                                 _buildStatusBadge(apt['status']),
                               ],
                             ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            size: 16,
-                            color: AppColors.inkMuted,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            formattedDate,
-                            style: TextStyle(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.5,
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 16,
+                                  color: AppColors.inkMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  formattedDate,
+                                  style: TextStyle(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 9),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.notes_rounded,
-                            size: 16,
-                            color: AppColors.inkMuted,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              note,
-                              style: TextStyle(
-                                color: AppColors.inkMuted,
-                                height: 1.3,
+                            const SizedBox(height: 9),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.notes_rounded,
+                                  size: 16,
+                                  color: AppColors.inkMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    note,
+                                    style: TextStyle(
+                                      color: AppColors.inkMuted,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_canCancelAppointment(apt)) ...[
+                              const SizedBox(height: 14),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _cancelAppointment(
+                                    Map<String, dynamic>.from(apt),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Cancel appointment'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.danger,
+                                    side: BorderSide(color: AppColors.danger),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                            ],
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
           );
 
     if (widget.embedded) {
@@ -327,25 +449,25 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
         leading: widget.isMainTab
             ? const SizedBox.shrink()
             : Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(13),
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: AppColors.edge),
+                padding: const EdgeInsets.only(left: 16),
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(13),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: AppColors.edge),
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 22,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(
-                Icons.arrow_back_rounded,
-                size: 22,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-        ),
       ),
       body: content,
     );

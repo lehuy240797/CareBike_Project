@@ -107,6 +107,13 @@ public class AppointmentService {
         Appointment apt = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lịch hẹn không tồn tại: " + id));
 
+        if (!"PENDING".equals(apt.getStatus()) && !"CONFIRMED".equals(apt.getStatus())) {
+            throw new RuntimeException("Chỉ có thể hủy lịch hẹn khi đang chờ hoặc đã được xác nhận nhưng chưa tạo hóa đơn.");
+        }
+        if (apt.getInvoiceDetails() != null && !apt.getInvoiceDetails().isBlank()) {
+            throw new RuntimeException("Không thể hủy lịch hẹn sau khi hóa đơn đã được tạo.");
+        }
+
         apt.setStatus("CANCELLED");
         Appointment cancelledAppointment = appointmentRepository.save(apt);
 
@@ -132,6 +139,9 @@ public class AppointmentService {
         Appointment apt = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lịch hẹn không tồn tại: " + id));
         apt.setStatus(newStatus);
+        if ("COMPLETED".equalsIgnoreCase(newStatus)) {
+            apt.setCompletedAt(java.time.LocalDateTime.now());
+        }
         Appointment updatedAppointment = appointmentRepository.save(apt);
 
         if (messagingTemplate != null) {

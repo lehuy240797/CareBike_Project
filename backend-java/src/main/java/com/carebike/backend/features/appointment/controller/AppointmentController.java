@@ -127,6 +127,7 @@ public class AppointmentController {
         response.put("invoiceDetails", appointment.getInvoiceDetails());
         response.put("totalCost", appointment.getTotalCost());
         response.put("currentKm", appointment.getCurrentKm());
+        response.put("completedAt", appointment.getCompletedAt());
         return response;
     }
 }

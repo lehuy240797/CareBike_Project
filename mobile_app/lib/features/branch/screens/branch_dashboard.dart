@@ -15,6 +15,7 @@ import 'package:mobile_app/core/network/web_socket_service.dart';
 import 'package:mobile_app/features/rescue/rescue_store.dart';
 import 'package:mobile_app/features/branch/screens/branch_customer_intake_screen.dart';
 import 'package:mobile_app/features/branch/screens/branch_rescue_screen.dart';
+import 'package:mobile_app/features/branch/screens/branch_walk_in_repair_screen.dart';
 import 'package:mobile_app/features/branch/widgets/sos_alert_dialog.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 
@@ -29,6 +30,8 @@ class BranchMobileDashboard extends StatefulWidget {
 
 class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
   int _currentIndex = 0;
+  int _appointmentRefreshToken = 0;
+  List<dynamic> _pendingAppointmentPreview = [];
   bool _isScanning = false;
   final MobileScannerController _scannerController = MobileScannerController();
 
@@ -184,6 +187,30 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
       _BranchHomeTab(
         auth: auth,
         pendingAptCount: _pendingAptCount,
+        pendingAppointments: _pendingAppointmentPreview,
+        onWalkInRepair: () async {
+          if (branchId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Branch data is still loading.'),
+                backgroundColor: AppColors.danger,
+              ),
+            );
+            return;
+          }
+          final created = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BranchWalkInRepairScreen(branchId: branchId),
+            ),
+          );
+          if (created == true && mounted) {
+            setState(() {
+              _appointmentRefreshToken++;
+              _currentIndex = 2;
+            });
+          }
+        },
         onScanQR: () {
           if (branchId == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -197,6 +224,7 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
           _openQRScanner(branchId);
         },
         onViewRescues: () => setState(() => _currentIndex = 1),
+        onViewAppointments: () => setState(() => _currentIndex = 2),
       ),
       branchId != null
           ? BranchRescueScreen(branchId: branchId)
@@ -204,8 +232,14 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
       branchId != null
           ? _BranchAppointmentTab(
               branchId: branchId,
+              refreshToken: _appointmentRefreshToken,
               onPendingCountChanged: (count) {
                 if (mounted) setState(() => _pendingAptCount = count);
+              },
+              onPendingAppointmentsChanged: (items) {
+                if (mounted) {
+                  setState(() => _pendingAppointmentPreview = items);
+                }
               },
             )
           : const Center(child: Text('Loading branch data...')),
@@ -321,14 +355,20 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
 class _BranchHomeTab extends StatelessWidget {
   final AuthProvider auth;
   final VoidCallback onScanQR;
+  final VoidCallback onWalkInRepair;
   final VoidCallback onViewRescues;
+  final VoidCallback onViewAppointments;
   final int pendingAptCount;
-  
+  final List<dynamic> pendingAppointments;
+
   const _BranchHomeTab({
     required this.auth,
     required this.onScanQR,
+    required this.onWalkInRepair,
     required this.onViewRescues,
+    required this.onViewAppointments,
     required this.pendingAptCount,
+    required this.pendingAppointments,
   });
 
   @override
@@ -451,80 +491,161 @@ class _BranchHomeTab extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  _buildScanQrCard(),
+                  const SizedBox(height: 12),
+                  _homeActionCard(
+                    icon: Icons.person_add_alt_1_rounded,
+                    title: 'Walk-in repair',
+                    subtitle: 'Create order for customer without account',
+                    onTap: onWalkInRepair,
+                  ),
                   if (sos.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _buildSosQueue(context, sos),
+                  ],
+                  if (pendingAppointments.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildAppointmentQueue(context, pendingAppointments),
                   ],
                 ],
               );
             },
           ),
-          const SizedBox(height: 16),
-          // Scan customer QR card -> opens the existing QR scanner
-          InkWell(
-            onTap: onScanQR,
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              padding: const EdgeInsets.all(16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScanQrCard() {
+    return InkWell(
+      onTap: onScanQR,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.edge),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryDeep.withValues(alpha: 0.07),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.edge),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryDeep.withValues(alpha: 0.07),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                color: AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Row(
+              child: Icon(
+                Icons.qr_code_scanner_rounded,
+                color: AppColors.primaryHover,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryMuted,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: AppColors.primaryHover,
-                      size: 24,
+                  Text(
+                    'Scan customer QR',
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Scan customer QR',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Start a new maintenance record',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppColors.inkMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 2),
+                  Text(
+                    'Start a new maintenance record',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.inkMuted,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, color: AppColors.hairline),
                 ],
               ),
             ),
-          ),
-        ],
+            Icon(Icons.chevron_right_rounded, color: AppColors.hairline),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _homeActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.edge),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryDeep.withValues(alpha: 0.07),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: AppColors.primaryHover, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.inkMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.hairline),
+          ],
+        ),
       ),
     );
   }
@@ -668,6 +789,190 @@ class _BranchHomeTab extends StatelessWidget {
     );
   }
 
+  Widget _buildAppointmentQueue(
+    BuildContext context,
+    List<dynamic> appointments,
+  ) {
+    const amber = Color(0xFFF59E0B);
+    final isDark = ThemeController.instance.isDark;
+    final amberBg = isDark
+        ? Color.alphaBlend(amber.withValues(alpha: 0.13), AppColors.surface)
+        : AppColors.warningBg;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: amberBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: amber.withValues(alpha: 0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: amber.withValues(alpha: isDark ? 0.08 : 0.16),
+            blurRadius: isDark ? 14 : 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: amber,
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'APPOINTMENTS — WAITING CONFIRM',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFB45309),
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: amber,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${appointments.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...appointments.take(4).map((apt) => _buildAppointmentTile(apt)),
+          if (appointments.length > 4)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '+ ${appointments.length - 4} more',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppointmentTile(dynamic apt) {
+    final name =
+        apt['customerName']?.toString() ??
+        apt['customer']?['fullName']?.toString() ??
+        'Customer';
+    final note = apt['note']?.toString();
+    final date = DateTime.tryParse(apt['appointmentDate']?.toString() ?? '');
+    final time = date == null
+        ? 'No time'
+        : DateFormat('HH:mm - dd/MM/yyyy').format(date.toLocal());
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(
+          left: BorderSide(color: Color(0xFFF59E0B), width: 4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              Text(
+                '#${apt['id']}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFD97706),
+                  fontSize: 12.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            time,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: AppColors.inkMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (note != null && note.trim().isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              note,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.inkMuted,
+                height: 1.3,
+              ),
+            ),
+          ],
+          const SizedBox(height: 11),
+          SizedBox(
+            height: 40,
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onViewAppointments,
+              icon: const Icon(Icons.calendar_today_rounded, size: 17),
+              label: const Text(
+                'View in bookings',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSosTile(BuildContext context, dynamic r) {
     final customer = (r['customer'] as Map?) ?? const {};
     final name = customer['fullName'] ?? 'Anonymous rider';
@@ -789,11 +1094,15 @@ class _BranchHomeTab extends StatelessWidget {
 /// Appointments tab: fetch and show pending appointments
 class _BranchAppointmentTab extends StatefulWidget {
   final int branchId;
+  final int refreshToken;
   final ValueChanged<int>? onPendingCountChanged;
-  
+  final ValueChanged<List<dynamic>>? onPendingAppointmentsChanged;
+
   const _BranchAppointmentTab({
     required this.branchId,
+    this.refreshToken = 0,
     this.onPendingCountChanged,
+    this.onPendingAppointmentsChanged,
   });
 
   @override
@@ -828,7 +1137,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
             ),
           );
         } else if (status == 'COMPLETED') {
-           ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('✅ Customer has paid their bill!'),
               backgroundColor: AppColors.success,
@@ -839,6 +1148,14 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         }
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _BranchAppointmentTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _fetchAppointments();
+    }
   }
 
   @override
@@ -868,6 +1185,15 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           'Content-Type': 'application/json',
         },
       );
+      final walkInResponse = await http.get(
+        Uri.parse(
+          '${ApiClient.baseUrl}/walk-in-repairs/branch/${widget.branchId}',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -875,21 +1201,30 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           throw Exception("Unexpected appointments response");
         }
 
-        final appointments = await _attachInvoiceVehicleInfo(decoded, token!);
+        final walkIns = walkInResponse.statusCode == 200
+            ? jsonDecode(utf8.decode(walkInResponse.bodyBytes))
+            : [];
+        final combined = [...decoded, if (walkIns is List) ...walkIns];
+
+        final appointments = await _attachInvoiceVehicleInfo(combined, token!);
 
         final pendingApts = appointments
             .where((apt) => _appointmentStatus(apt) == 'PENDING')
             .toList();
         final confirmedApts = appointments
-            .where((apt) => _appointmentStatus(apt) == 'CONFIRMED' || _appointmentStatus(apt) == 'PAYING')
+            .where(
+              (apt) =>
+                  _appointmentStatus(apt) == 'CONFIRMED' ||
+                  _appointmentStatus(apt) == 'PAYING',
+            )
             .toList();
         final completedApts = appointments
             .where((apt) => _appointmentStatus(apt) == 'COMPLETED')
             .toList();
 
-        pendingApts.sort((a, b) => b['id'].compareTo(a['id']));
-        confirmedApts.sort((a, b) => b['id'].compareTo(a['id']));
-        completedApts.sort((a, b) => b['id'].compareTo(a['id']));
+        pendingApts.sort(_sortByDateThenIdDesc);
+        confirmedApts.sort(_sortByDateThenIdDesc);
+        completedApts.sort(_sortByCompletedBillDesc);
 
         if (mounted) {
           setState(() {
@@ -899,6 +1234,9 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
             _isLoading = false;
           });
           widget.onPendingCountChanged?.call(pendingApts.length);
+          widget.onPendingAppointmentsChanged?.call(
+            List<dynamic>.from(pendingApts),
+          );
         }
       } else {
         throw Exception("Failed to retrieve data");
@@ -912,6 +1250,81 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
   String _appointmentStatus(dynamic appointment) {
     if (appointment is! Map) return '';
     return appointment['status']?.toString().toUpperCase() ?? '';
+  }
+
+  int _sortByDateThenIdDesc(dynamic a, dynamic b) {
+    final aDate = DateTime.tryParse(a['appointmentDate']?.toString() ?? '');
+    final bDate = DateTime.tryParse(b['appointmentDate']?.toString() ?? '');
+    final dateCompare = (bDate ?? DateTime(1900)).compareTo(
+      aDate ?? DateTime(1900),
+    );
+    if (dateCompare != 0) return dateCompare;
+    return (_asInt(b['id']) ?? 0).compareTo(_asInt(a['id']) ?? 0);
+  }
+
+  int _sortByCompletedBillDesc(dynamic a, dynamic b) {
+    final aTime = _completedBillTime(a);
+    final bTime = _completedBillTime(b);
+    final timeCompare = (bTime ?? DateTime(1900)).compareTo(
+      aTime ?? DateTime(1900),
+    );
+    if (timeCompare != 0) return timeCompare;
+    return (_asInt(b['id']) ?? 0).compareTo(_asInt(a['id']) ?? 0);
+  }
+
+  DateTime? _completedBillTime(dynamic appointment) {
+    if (appointment is! Map) return null;
+
+    final completedAt = DateTime.tryParse(
+      appointment['completedAt']?.toString() ?? '',
+    );
+    if (completedAt != null) return completedAt;
+
+    final appointmentInvoice = appointment['appointmentInvoice'];
+    if (appointmentInvoice is Map) {
+      final serviceDate = DateTime.tryParse(
+        appointmentInvoice['serviceDate']?.toString() ?? '',
+      );
+      if (serviceDate != null) return serviceDate;
+
+      final invoiceDate = _parseBillDate(appointmentInvoice['date']);
+      if (invoiceDate != null) return invoiceDate;
+    }
+
+    final inlineInvoice = _parseInvoiceDetails(appointment['invoiceDetails']);
+    if (inlineInvoice != null) {
+      final invoiceDate = _parseBillDate(inlineInvoice['date']);
+      if (invoiceDate != null) return invoiceDate;
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic>? _parseInvoiceDetails(dynamic value) {
+    final text = value?.toString();
+    if (text == null || !text.trimLeft().startsWith('{')) return null;
+    try {
+      final decoded = jsonDecode(text);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? _parseBillDate(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    final isoDate = DateTime.tryParse(text);
+    if (isoDate != null) return isoDate;
+
+    for (final pattern in ['HH:mm - dd/MM/yyyy', 'dd/MM/yyyy']) {
+      try {
+        return DateFormat(pattern).parseStrict(text);
+      } catch (_) {
+        // Try the next known bill date format.
+      }
+    }
+    return null;
   }
 
   Future<List<dynamic>> _attachInvoiceVehicleInfo(
@@ -1107,6 +1520,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         itemCount: list.length,
         itemBuilder: (context, index) {
           final apt = list[index];
+          final isWalkIn = apt['type']?.toString() == 'WALK_IN';
           final DateTime date = DateTime.parse(
             apt['appointmentDate'],
           ).toLocal();
@@ -1118,6 +1532,8 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           final vehicle = apt['vehicle'] ?? {};
           final invoiceVehicleName = apt['invoiceVehicleName']?.toString();
           final invoiceVehiclePlate = apt['invoiceVehiclePlate']?.toString();
+          final directVehicleName = apt['vehicleName']?.toString();
+          final directVehiclePlate = apt['vehiclePlate']?.toString();
           final hasInvoiceVehicle =
               invoiceVehicleName != null &&
               invoiceVehicleName.trim().isNotEmpty &&
@@ -1126,7 +1542,15 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           final invoiceVehicleInfo = hasInvoiceVehicle
               ? '${invoiceVehicleName.trim()} - ${invoiceVehiclePlate.trim()}'
               : null;
+          final directVehicleInfo =
+              directVehicleName != null &&
+                  directVehicleName.trim().isNotEmpty &&
+                  directVehiclePlate != null &&
+                  directVehiclePlate.trim().isNotEmpty
+              ? '${directVehicleName.trim()} - ${directVehiclePlate.trim()}'
+              : null;
           final vehicleInfo =
+              directVehicleInfo ??
               invoiceVehicleInfo ??
               (vehicle.isNotEmpty
                   ? '${vehicle['brand']} ${vehicle['model']} - ${vehicle['licensePlate']}'
@@ -1180,7 +1604,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Appointment #${apt['id']}',
+                        '${isWalkIn ? 'Walk-in' : 'Appointment'} #${apt['id']}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: borderColor,
@@ -1313,15 +1737,22 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
                         child: FilledButton.icon(
                           onPressed: () async {
                             try {
-                              final response = await ApiClient.put(
-                                '/appointments/${apt['id']}/pay',
-                                {},
-                              );
+                              final response = isWalkIn
+                                  ? await ApiClient.put(
+                                      '/walk-in-repairs/${apt['id']}/complete',
+                                      {},
+                                    )
+                                  : await ApiClient.put(
+                                      '/appointments/${apt['id']}/pay',
+                                      {},
+                                    );
                               ApiClient.parseResponse(response);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: const Text('Thanh toán thành công!'),
+                                    content: const Text(
+                                      'Payment completed successfully!',
+                                    ),
                                     backgroundColor: AppColors.success,
                                   ),
                                 );
@@ -1331,7 +1762,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Lỗi: $e'),
+                                    content: Text('Error: $e'),
                                     backgroundColor: AppColors.danger,
                                   ),
                                 );

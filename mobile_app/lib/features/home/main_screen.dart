@@ -30,29 +30,6 @@ class _MainScreenState extends State<MainScreen> {
   int _historyRefreshKey = 0;
   int _homeRefreshKey = 0;
 
-  static const _destinations = [
-    NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
-      label: 'Home',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.motorcycle_outlined),
-      selectedIcon: Icon(Icons.motorcycle_rounded),
-      label: 'My Vehicles',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.history_outlined),
-      selectedIcon: Icon(Icons.history_rounded),
-      label: 'History',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.person_outline_rounded),
-      selectedIcon: Icon(Icons.person_rounded),
-      label: 'Profile',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -67,6 +44,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _setupGlobalWebSocket() {
     Future.microtask(() {
+      if (!mounted) return;
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final int? customerId = _currentCustomerId(authProvider.mysqlUser);
 
@@ -350,6 +328,7 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       drawer: _buildDrawer(
         context,
       ), // <--- Attach the drawer to the root Scaffold
@@ -457,6 +436,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-    ); // Đã xóa phần floatingActionButton bị lỗi ở dưới dòng này
+    );
   }
 }

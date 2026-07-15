@@ -46,6 +46,9 @@ public class Appointment {
     @Column(name = "current_km")
     private Integer currentKm;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     /**
      * PENDING   → freshly booked
      * CONFIRMED → branch has acknowledged

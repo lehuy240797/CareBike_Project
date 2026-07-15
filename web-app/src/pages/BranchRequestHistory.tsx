@@ -40,12 +40,17 @@ import {
 interface RequestRecord {
   id: number;
   type: 'RESCUE' | 'APPOINTMENT';
+  sourceType?: 'RESCUE' | 'APPOINTMENT' | 'WALK_IN' | string;
   status: string;
   customer?: ApiObject;
   customerName?: string;
   customerPhone?: string;
   vehicle?: ApiObject;
+  vehicleName?: string;
+  vehiclePlate?: string;
   branch?: ApiObject;
+  branchId?: number;
+  branchName?: string;
   createdAt?: string;
   appointmentDate?: string;
   invoiceDetails?: string;
@@ -99,6 +104,22 @@ const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
   { key: 'APPOINTMENT', label: 'Appointments', icon: CalendarDays },
 ];
 
+const PAGE_SIZE = 10;
+const monthChoices = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
 const BranchRequestHistory = () => {
   const { user } = useAuth();
   const branchId = (user as { branchId?: number } | null)?.branchId;
@@ -108,14 +129,19 @@ const BranchRequestHistory = () => {
   const [appointments, setAppointments] = useState<RequestRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [openFilterMenu, setOpenFilterMenu] = useState<'month' | 'year' | null>(null);
+  const [page, setPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<RequestRecord | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!branchId) return;
     setIsLoading(true);
-    const [rescueResult, appointmentResult] = await Promise.allSettled([
+    const [rescueResult, appointmentResult, walkInResult] = await Promise.allSettled([
       apiClient.get(`/rescues/branch/${branchId}`),
       apiClient.get(`/appointments/branch/${branchId}`),
+      apiClient.get(`/walk-in-repairs/branch/${branchId}`),
     ]);
 
     if (rescueResult.status === 'fulfilled') {
@@ -136,11 +162,28 @@ const BranchRequestHistory = () => {
       const mappedAppointments = appointmentData.map((a) => ({
         ...a,
         type: 'APPOINTMENT',
+        sourceType: 'APPOINTMENT',
       })) as RequestRecord[];
-      const enrichedAppointments = await enrichAppointmentsWithInvoices(mappedAppointments);
-      enrichedAppointments.sort(
-        (a: RequestRecord, b: RequestRecord) => b.id - a.id,
-      );
+
+      let mappedWalkIns: RequestRecord[] = [];
+      if (walkInResult.status === 'fulfilled') {
+        const walkInData = walkInResult.value.data as ApiObject[];
+        mappedWalkIns = walkInData.map((record) => ({
+          ...record,
+          type: 'APPOINTMENT',
+          sourceType: 'WALK_IN',
+          appointmentInvoice: parseInvoice(asText(record.invoiceDetails)),
+        })) as RequestRecord[];
+      } else {
+        console.error('Failed to load walk-in repairs', walkInResult.reason);
+        toast.error(`Failed to load walk-in repairs: ${apiErrorLabel(walkInResult.reason)}`);
+      }
+
+      const enrichedAppointments = await enrichAppointmentsWithInvoices([
+        ...mappedAppointments,
+        ...mappedWalkIns,
+      ]);
+      enrichedAppointments.sort(sortByRequestTimeDesc);
       setAppointments(enrichedAppointments);
     } else {
       console.error('Failed to load appointments', appointmentResult.reason);
@@ -157,17 +200,38 @@ const BranchRequestHistory = () => {
 
   const activeList = activeTab === 'RESCUE' ? rescues : appointments;
 
+  const availableYears = useMemo(() => {
+    const years = activeList
+      .map((item) => new Date(requestTime(item)))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .map((date) => String(date.getFullYear()));
+
+    return Array.from(new Set(years)).sort((a, b) => Number(b) - Number(a));
+  }, [activeList]);
+
   const filteredList = useMemo(() => {
-    if (!searchTerm) return activeList;
+    const dateFiltered = filterMonth || filterYear
+      ? activeList.filter((item) => {
+        const date = new Date(requestTime(item));
+        if (Number.isNaN(date.getTime())) return false;
+
+        const itemMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const itemYear = String(date.getFullYear());
+        const monthMatches = !filterMonth || itemMonth === filterMonth;
+        const yearMatches = !filterYear || itemYear === filterYear;
+
+        return monthMatches && yearMatches;
+      })
+      : activeList;
+
+    if (!searchTerm) return dateFiltered;
     const lowerTerm = searchTerm.toLowerCase();
-    return activeList.filter((item) => {
+    return dateFiltered.filter((item) => {
       const haystack = [
-        item.id,
         customerName(item),
         customerPhone(item),
         vehicleName(item),
         vehiclePlate(item),
-        item.status,
       ]
         .filter(Boolean)
         .join(' ')
@@ -175,12 +239,28 @@ const BranchRequestHistory = () => {
 
       return haystack.includes(lowerTerm);
     });
-  }, [activeList, searchTerm]);
+  }, [activeList, filterMonth, filterYear, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedList = filteredList.slice(pageStart, pageStart + PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, filterMonth, filterYear, searchTerm]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const completedCount = activeList.filter((item) => item.status === 'COMPLETED').length;
   const pendingCount = activeList.filter((item) =>
     ['PENDING', 'ACCEPTED', 'CONFIRMED'].includes(item.status),
   ).length;
+  const selectedMonthLabel =
+    monthChoices.find((month) => month.value === filterMonth)?.label || 'All months';
+  const selectedYearLabel = filterYear || 'All years';
 
   return (
     <div className="mx-auto max-w-[76rem] animate-fade-up">
@@ -240,11 +320,116 @@ const BranchRequestHistory = () => {
             />
             <input
               type="text"
-              placeholder="Search ID, customer, phone, plate, status..."
+              placeholder="Search customer, phone, vehicle, plate..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="w-full rounded-2xl border border-edge bg-white py-3 pl-11 pr-4 text-sm font-medium text-ink outline-none transition focus:border-primary focus:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
             />
+          </div>
+
+          <div className="relative flex min-w-[22rem] items-center gap-2 rounded-2xl border border-edge bg-white px-3 py-2 shadow-sm">
+            <CalendarDays size={18} className="shrink-0 text-primary" />
+            <button
+              type="button"
+              onClick={() => setOpenFilterMenu(openFilterMenu === 'month' ? null : 'month')}
+              className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl bg-primary-light px-3 py-2 text-left text-sm font-bold text-ink transition hover:bg-primary/10 focus:outline-none focus:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
+            >
+              <span className="truncate">{selectedMonthLabel}</span>
+              <span className="text-primary">⌄</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpenFilterMenu(openFilterMenu === 'year' ? null : 'year')}
+              className="inline-flex w-28 items-center justify-between gap-2 rounded-xl bg-primary-light px-3 py-2 text-left text-sm font-bold text-ink transition hover:bg-primary/10 focus:outline-none focus:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
+            >
+              <span className="truncate">{selectedYearLabel}</span>
+              <span className="text-primary">⌄</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterMonth('');
+                setFilterYear('');
+                setOpenFilterMenu(null);
+              }}
+              disabled={!filterMonth && !filterYear}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-muted transition hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ink-muted"
+              aria-label="Clear month filter"
+            >
+              <X size={17} />
+            </button>
+
+            {openFilterMenu === 'month' && (
+              <div className="absolute left-10 top-[calc(100%+0.5rem)] z-30 w-56 overflow-hidden rounded-2xl border border-edge bg-white p-2 shadow-float">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMonth('');
+                    setOpenFilterMenu(null);
+                  }}
+                  className={`flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
+                    !filterMonth ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                  }`}
+                >
+                  All months
+                </button>
+                <div className="mt-1 grid grid-cols-3 gap-1">
+                  {monthChoices.map((month) => {
+                    const active = filterMonth === month.value;
+                    return (
+                      <button
+                        key={month.value}
+                        type="button"
+                        onClick={() => {
+                          setFilterMonth(month.value);
+                          setOpenFilterMenu(null);
+                        }}
+                        className={`rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
+                          active ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                        }`}
+                      >
+                        {month.label.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {openFilterMenu === 'year' && (
+              <div className="absolute right-14 top-[calc(100%+0.5rem)] z-30 max-h-72 w-40 overflow-y-auto rounded-2xl border border-edge bg-white p-2 shadow-float">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterYear('');
+                    setOpenFilterMenu(null);
+                  }}
+                  className={`flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
+                    !filterYear ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                  }`}
+                >
+                  All years
+                </button>
+                {availableYears.map((year) => {
+                  const active = filterYear === year;
+                  return (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => {
+                        setFilterYear(year);
+                        setOpenFilterMenu(null);
+                      }}
+                      className={`mt-1 flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
+                        active ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                      }`}
+                    >
+                      {year}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -282,8 +467,8 @@ const BranchRequestHistory = () => {
                   </td>
                 </tr>
               ) : (
-                filteredList.map((item) => (
-                  <tr key={`${item.type}-${item.id}`} className={tableRow}>
+                pagedList.map((item) => (
+                  <tr key={`${item.type}-${item.sourceType || 'DEFAULT'}-${item.id}`} className={tableRow}>
                     <td className={tdCell}>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
@@ -296,7 +481,11 @@ const BranchRequestHistory = () => {
                         <div>
                           <p className="m-0 font-bold text-ink">#{item.id}</p>
                           <p className="m-0 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                            {item.type === 'RESCUE' ? 'Rescue' : 'Appointment'}
+                            {item.type === 'RESCUE'
+                              ? 'Rescue'
+                              : item.sourceType === 'WALK_IN'
+                                ? 'Walk-in'
+                                : 'Appointment'}
                           </p>
                         </div>
                       </div>
@@ -339,6 +528,34 @@ const BranchRequestHistory = () => {
             </tbody>
           </table>
         </div>
+        {!isLoading && filteredList.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-edge px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="m-0 text-sm font-medium text-ink-muted">
+              Showing {pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, filteredList.length)} of {filteredList.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((value) => Math.max(1, value - 1))}
+                disabled={currentPage === 1}
+                className="rounded-xl border border-edge bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-edge disabled:hover:text-ink"
+              >
+                Previous
+              </button>
+              <span className="min-w-20 text-center text-sm font-bold text-ink">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-xl border border-edge bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-edge disabled:hover:text-ink"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedItem && (
@@ -396,6 +613,10 @@ const DetailModal = ({
   const rescueInvoice = parseInvoice(item.invoiceDetails);
   const [appointmentInvoice, setAppointmentInvoice] = useState<InvoiceData | null>(null);
   const [appointmentInvoiceLoading, setAppointmentInvoiceLoading] = useState(false);
+  const embeddedAppointmentInvoice = useMemo(
+    () => item.appointmentInvoice || parseInvoice(item.invoiceDetails),
+    [item.appointmentInvoice, item.invoiceDetails],
+  );
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -407,8 +628,19 @@ const DetailModal = ({
   }, []);
 
   useEffect(() => {
-    if (item.type !== 'APPOINTMENT' || item.status !== 'COMPLETED') {
+    if (item.type !== 'APPOINTMENT') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAppointmentInvoice(null);
+      return;
+    }
+
+    if (embeddedAppointmentInvoice) {
+      setAppointmentInvoice(embeddedAppointmentInvoice);
+      setAppointmentInvoiceLoading(false);
+      return;
+    }
+
+    if (item.status !== 'COMPLETED') {
       setAppointmentInvoice(null);
       return;
     }
@@ -441,7 +673,7 @@ const DetailModal = ({
     return () => {
       cancelled = true;
     };
-  }, [item]);
+  }, [embeddedAppointmentInvoice, item]);
 
   const displayItem = appointmentInvoice
     ? { ...item, appointmentInvoice }
@@ -460,7 +692,7 @@ const DetailModal = ({
           <div>
             <p className={eyebrow}>{item.type === 'RESCUE' ? 'Rescue detail' : 'Appointment detail'}</p>
             <h2 className="m-0 mt-1 font-display text-2xl font-black text-ink">
-              Request #{item.id}
+              {item.sourceType === 'WALK_IN' ? 'Walk-in' : 'Request'} #{item.id}
             </h2>
             <p className={pageSubtitle}>{formatDate(requestTime(item))}</p>
           </div>
@@ -516,8 +748,8 @@ const DetailModal = ({
               <div className="mx-auto mb-3 h-8 w-8 animate-spin-fast rounded-full border-[3px] border-edge border-t-primary" />
               Loading invoice from maintenance history...
             </div>
-          ) : appointmentInvoice ? (
-            <InvoiceCard invoice={appointmentInvoice} serviceLabel="Maintenance Service" />
+          ) : displayItem.appointmentInvoice ? (
+            <InvoiceCard invoice={displayItem.appointmentInvoice} serviceLabel="Maintenance Service" />
           ) : (
             <div className="rounded-3xl border border-edge bg-white p-6 text-center text-ink-muted shadow-sm">
               <CalendarDays size={34} className="mx-auto mb-3 text-primary" />
@@ -750,6 +982,9 @@ const vehicleName = (item: RequestRecord) => {
   const invoiceVehicleName = asText(item.appointmentInvoice?.vehicleName);
   if (invoiceVehicleName) return invoiceVehicleName;
 
+  const directVehicleName = asText(item.vehicleName);
+  if (directVehicleName) return directVehicleName;
+
   const vehicle = item.vehicle;
   return [
     asText(vehicle?.brand),
@@ -760,10 +995,21 @@ const vehicleName = (item: RequestRecord) => {
 };
 
 const vehiclePlate = (item: RequestRecord) =>
-  asText(item.appointmentInvoice?.vehiclePlate) || asText(item.vehicle?.licensePlate);
+  asText(item.appointmentInvoice?.vehiclePlate) ||
+  asText(item.vehiclePlate) ||
+  asText(item.vehicle?.licensePlate);
 
 const requestTime = (item: RequestRecord) =>
   item.type === 'RESCUE' ? asText(item.createdAt) : asText(item.appointmentDate);
+
+const sortByRequestTimeDesc = (a: RequestRecord, b: RequestRecord) => {
+  const aTime = Date.parse(requestTime(a));
+  const bTime = Date.parse(requestTime(b));
+  const timeCompare =
+    (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+
+  return timeCompare || b.id - a.id;
+};
 
 const formatDate = (value?: string) => {
   if (!value) return 'N/A';

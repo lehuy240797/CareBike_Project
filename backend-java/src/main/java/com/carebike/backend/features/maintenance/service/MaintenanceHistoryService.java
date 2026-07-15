@@ -150,6 +150,7 @@ public class MaintenanceHistoryService {
             Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                     .orElseThrow(() -> new RuntimeException("Appointment not found: " + request.getAppointmentId()));
             appointment.setStatus("COMPLETED");
+            appointment.setCompletedAt(LocalDateTime.now());
             return appointmentRepository.save(appointment).getId();
         }
 
@@ -177,6 +178,9 @@ public class MaintenanceHistoryService {
                         ? request.getAppointmentStatus().trim().toUpperCase()
                         : "COMPLETED"
         );
+        if ("COMPLETED".equals(appointment.getStatus())) {
+            appointment.setCompletedAt(LocalDateTime.now());
+        }
         return appointmentRepository.save(appointment).getId();
     }
 
@@ -208,6 +212,7 @@ public class MaintenanceHistoryService {
         }
 
         appointment.setStatus("COMPLETED");
+        appointment.setCompletedAt(LocalDateTime.now());
         appointmentRepository.save(appointment);
 
         MaintenanceHistory record = new MaintenanceHistory();
