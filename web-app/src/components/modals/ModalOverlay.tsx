@@ -21,10 +21,10 @@ interface ModalOverlayProps {
 const ModalOverlay = ({ title, onClose, children, isOpen = true, icon, contentClass = '' }: ModalOverlayProps) => {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen) return null;
-
   // Close on Escape key
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -35,7 +35,9 @@ const ModalOverlay = ({ title, onClose, children, isOpen = true, icon, contentCl
       document.removeEventListener('keydown', handleKey);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   // Close on backdrop click (not on content click)
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {

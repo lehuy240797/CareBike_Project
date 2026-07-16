@@ -227,19 +227,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // ====================================================================
       // XỬ LÝ NGOẠI LỆ: Xóa phiên đăng nhập lỗi và phiên dịch mã lỗi
       // ====================================================================
+      console.error('[Login] Full error:', error);
       
       // Dọn dẹp session Firebase ngay lập tức nếu Backend từ chối
       if (auth.currentUser) {
         await signOut(auth);
       }
 
-      // 1. Lỗi từ Spring Boot (Axios Error: Lỗi 403 phân quyền, khóa tài khoản...)
-      if (error.response && error.response.data && error.response.data.message) {
-        throw new Error(error.response.data.message); // Hiển thị nguyên trạng thông báo lỗi từ phía Spring Boot
+      // If the error was already thrown by us (e.g. "Unauthorized"), re-throw as-is
+      if (error.message && !error.code && !error.response) {
+        throw error;
       }
 
-      // 2. Lỗi từ Firebase (Sai pass, block, mất mạng...)
-      if (error.code) {
+      // 1. Lỗi từ Spring Boot (Axios Error: Lỗi 403 phân quyền, khóa tài khoản...)
+      if (error.response && error.response.data && error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+
+      // 2. Axios network error (backend down, CORS, timeout)
+      if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
+        throw new Error("Could not connect to the server. Please try again later.");
+      }
+
+      // 3. Lỗi từ Firebase (Sai pass, block, mất mạng...)
+      if (error.code && error.code.startsWith('auth/')) {
         switch (error.code) {
           case 'auth/invalid-credential':
           case 'auth/wrong-password':
@@ -252,12 +263,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           case 'auth/network-request-failed':
             throw new Error("No network connection. Please check and try again.");
           default:
-            throw new Error("The authentication system is busy. Please try again later.");
+            throw new Error(error.message || "Authentication error. Please try again.");
         }
       }
 
-      // 3. Generic network error or server down
-      throw new Error("Could not connect to the server. Please try again later.");
+      // 4. Generic error
+      throw new Error(error.message || "Could not connect to the server. Please try again later.");
     }
   }, []);
 

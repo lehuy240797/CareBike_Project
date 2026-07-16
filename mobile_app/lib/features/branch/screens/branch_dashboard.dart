@@ -211,18 +211,6 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
             });
           }
         },
-        onScanQR: () {
-          if (branchId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Branch data is still loading.'),
-                backgroundColor: AppColors.danger,
-              ),
-            );
-            return;
-          }
-          _openQRScanner(branchId);
-        },
         onViewRescues: () => setState(() => _currentIndex = 1),
         onViewAppointments: () => setState(() => _currentIndex = 2),
       ),
@@ -354,7 +342,6 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
 /// Home tab: greeting and overview stats
 class _BranchHomeTab extends StatelessWidget {
   final AuthProvider auth;
-  final VoidCallback onScanQR;
   final VoidCallback onWalkInRepair;
   final VoidCallback onViewRescues;
   final VoidCallback onViewAppointments;
@@ -363,7 +350,6 @@ class _BranchHomeTab extends StatelessWidget {
 
   const _BranchHomeTab({
     required this.auth,
-    required this.onScanQR,
     required this.onWalkInRepair,
     required this.onViewRescues,
     required this.onViewAppointments,
@@ -485,15 +471,13 @@ class _BranchHomeTab extends StatelessWidget {
                         child: _buildStatCard(
                           title: 'Urgent rescues',
                           value: '${sos.length}',
-                          icon: Icons.speed_rounded,
+                          icon: Icons.sos_rounded,
                           color: const Color(0xFFDC2626),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _buildScanQrCard(),
-                  const SizedBox(height: 12),
                   _homeActionCard(
                     icon: Icons.person_add_alt_1_rounded,
                     title: 'Walk-in repair',
@@ -513,72 +497,6 @@ class _BranchHomeTab extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildScanQrCard() {
-    return InkWell(
-      onTap: onScanQR,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.edge),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryDeep.withValues(alpha: 0.07),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.primaryMuted,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                Icons.qr_code_scanner_rounded,
-                color: AppColors.primaryHover,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Scan customer QR',
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Start a new maintenance record',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.inkMuted,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.hairline),
-          ],
-        ),
       ),
     );
   }
@@ -1182,7 +1100,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         ),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
         },
       );
       final walkInResponse = await http.get(
@@ -1191,7 +1109,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         ),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
         },
       );
 
@@ -1336,7 +1254,11 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         .map((appointment) => Map<String, dynamic>.from(appointment))
         .toList();
     final customerIds = enriched
-        .map((appointment) => _asInt(appointment['customerId']))
+        .map(
+          (appointment) => _asInt(
+            appointment['customer']?['id'] ?? appointment['customerId'],
+          ),
+        )
         .whereType<int>()
         .toSet();
 
@@ -1349,7 +1271,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           Uri.parse('${ApiClient.baseUrl}/maintenance/customer/$customerId'),
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=UTF-8',
           },
         );
 
@@ -1529,11 +1451,17 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           ).format(date);
           final String customerName =
               apt['customer']?['fullName'] ?? apt['customerName'] ?? 'Customer';
-          final vehicle = apt['vehicle'] ?? {};
-          final invoiceVehicleName = apt['invoiceVehicleName']?.toString();
-          final invoiceVehiclePlate = apt['invoiceVehiclePlate']?.toString();
-          final directVehicleName = apt['vehicleName']?.toString();
-          final directVehiclePlate = apt['vehiclePlate']?.toString();
+          String? nonEmptyText(dynamic value) {
+            final text = value?.toString().trim() ?? '';
+            return text.isEmpty || text.toLowerCase() == 'null' ? null : text;
+          }
+
+          final rawVehicle = apt['vehicle'];
+          final vehicle = rawVehicle is Map
+              ? rawVehicle
+              : const <String, dynamic>{};
+          final invoiceVehicleName = nonEmptyText(apt['invoiceVehicleName']);
+          final invoiceVehiclePlate = nonEmptyText(apt['invoiceVehiclePlate']);
           final hasInvoiceVehicle =
               invoiceVehicleName != null &&
               invoiceVehicleName.trim().isNotEmpty &&
@@ -1542,19 +1470,27 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
           final invoiceVehicleInfo = hasInvoiceVehicle
               ? '${invoiceVehicleName.trim()} - ${invoiceVehiclePlate.trim()}'
               : null;
-          final directVehicleInfo =
-              directVehicleName != null &&
-                  directVehicleName.trim().isNotEmpty &&
-                  directVehiclePlate != null &&
-                  directVehiclePlate.trim().isNotEmpty
-              ? '${directVehicleName.trim()} - ${directVehiclePlate.trim()}'
-              : null;
+          final appointmentVehicleBrand = nonEmptyText(
+            apt['vehicleBrand'] ?? vehicle['brand'],
+          );
+          final appointmentVehicleName = nonEmptyText(
+            apt['vehicleName'] ?? vehicle['vehicleName'] ?? vehicle['model'],
+          );
+          final appointmentVehiclePlate = nonEmptyText(
+            apt['vehiclePlate'] ?? vehicle['licensePlate'],
+          );
+          final appointmentVehicleTitle = [
+            appointmentVehicleBrand,
+            appointmentVehicleName,
+          ].whereType<String>().join(' ').trim();
+          final appointmentVehicleInfo = appointmentVehicleTitle.isNotEmpty
+              ? [
+                  appointmentVehicleTitle,
+                  appointmentVehiclePlate,
+                ].whereType<String>().join(' - ')
+              : appointmentVehiclePlate;
           final vehicleInfo =
-              directVehicleInfo ??
-              invoiceVehicleInfo ??
-              (vehicle.isNotEmpty
-                  ? '${vehicle['brand']} ${vehicle['model']} - ${vehicle['licensePlate']}'
-                  : 'No vehicle data');
+              invoiceVehicleInfo ?? appointmentVehicleInfo ?? 'No vehicle data';
 
           Color borderColor = AppColors.inkMuted;
           Color statusBg = AppColors.fieldFill;
@@ -1752,6 +1688,9 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
                                   SnackBar(
                                     content: const Text(
                                       'Payment completed successfully!',
+                                      /*
+                                      'Thanh toán thành công!',
+                                      */
                                     ),
                                     backgroundColor: AppColors.success,
                                   ),
@@ -1847,7 +1786,7 @@ class _BranchAppointmentTabState extends State<_BranchAppointmentTab> {
         Uri.parse('${ApiClient.baseUrl}/appointments/$appointmentId/status'),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode({'status': newStatus}),
       );

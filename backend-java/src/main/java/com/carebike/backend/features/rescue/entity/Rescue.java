@@ -40,7 +40,7 @@ public class Rescue {
     private Double longitude;
 
     // Mô tả sự cố
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String issueDescription;
 
     // Trạng thái: PENDING (Chờ nhận), ACCEPTED (Đã nhận), COMPLETED (Xong), CANCELLED (Hủy)
@@ -49,6 +49,12 @@ public class Rescue {
     // Mã nhân viên thực hiện sửa chữa (CBS-xxxx)
     @Column(name = "staff_code", length = 20)
     private String staffCode;
+
+    @Transient
+    private String assignedStaffName;
+
+    @Transient
+    private String assignedStaffPhone;
 
     // Hệ số giá theo khung giờ (x1 ban ngày, x2 ban đêm)
     @Column(name = "time_multiplier")
@@ -67,11 +73,14 @@ public class Rescue {
     private java.math.BigDecimal totalCost;
 
     // Chi tiết hóa đơn (text)
-    @Column(name = "invoice_details", columnDefinition = "TEXT")
+    @Column(name = "invoice_details", columnDefinition = "NVARCHAR(MAX)")
     private String invoiceDetails;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
 
     @PrePersist
     protected void onCreate() {

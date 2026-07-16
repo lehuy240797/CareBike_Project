@@ -29,7 +29,12 @@ public class AppointmentController {
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CUSTOMER', 'BRANCH', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> createAppointment(@RequestBody AppointmentRequest request) {
         Appointment created = appointmentService.create(request);
-        return ResponseEntity.ok(toResponse(created));
+        Map<String, Object> resp = toResponse(created);
+        
+        boolean allBusy = appointmentService.isAllStaffBusy(request.getBranchId());
+        resp.put("allStaffBusy", allBusy);
+        
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -123,6 +128,9 @@ public class AppointmentController {
         response.put("vehicleBrand", appointment.getVehicleBrand());
         response.put("vehiclePlate", appointment.getVehiclePlate());
         response.put("engineCapacity", appointment.getEngineCapacity());
+        response.put("assignedStaffId", appointment.getAssignedStaffId());
+        response.put("assignedStaffCode", appointment.getAssignedStaffCode());
+        response.put("assignedStaffName", appointment.getAssignedStaffName());
 
         response.put("invoiceDetails", appointment.getInvoiceDetails());
         response.put("totalCost", appointment.getTotalCost());

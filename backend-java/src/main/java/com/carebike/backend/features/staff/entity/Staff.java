@@ -22,7 +22,7 @@ public class Staff {
     @Column(name = "staff_code", nullable = false, unique = true, length = 20)
     private String staffCode;
 
-    @Column(name = "full_name", nullable = false)
+    @Column(name = "full_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String fullName;
 
     @Column(length = 20)
@@ -32,4 +32,9 @@ public class Staff {
     @JoinColumn(name = "branch_id", nullable = false)
     @JsonIgnoreProperties({"manager", "createdAt"})
     private Branch branch;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    @Builder.Default
+    private StaffStatus status = StaffStatus.FREE;
 }

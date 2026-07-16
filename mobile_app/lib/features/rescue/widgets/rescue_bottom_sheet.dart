@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/features/auth/providers/auth_provider.dart';
 
-
 class RescueBottomSheet extends StatefulWidget {
   const RescueBottomSheet({super.key});
 
@@ -38,7 +37,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
     'Flat / punctured tire',
     'Dead battery',
     'Broken chain / belt',
-    'Engine died for no clear reason'
+    'Engine died for no clear reason',
   ];
   String _selectedIssue = '';
   final _otherIssueCtrl = TextEditingController();
@@ -57,10 +56,7 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
 
   Future<void> _fetchInitialData() async {
     // Run both in parallel: GPS location and loading the vehicle list to save time
-    await Future.wait([
-      _getLocationSafe(),
-      _loadMyVehicles(),
-    ]);
+    await Future.wait([_getLocationSafe(), _loadMyVehicles()]);
   }
 
   // ── SUPER-SAFE GPS LOGIC (reused from the map) ──
@@ -72,26 +68,13 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) throw Exception('Permission denied');
-      }
-
-      late LocationSettings locationSettings;
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        locationSettings = AndroidSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-          forceLocationManager: true, // Force GPS through the emulator
-        );
-      } else {
-        locationSettings = const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
+        if (permission == LocationPermission.denied)
+          throw Exception('Permission denied');
       }
 
       Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high, // High accuracy
-        timeLimit: const Duration(seconds: 5), // 5s timeout
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
       );
       _lat = pos.latitude;
       _lng = pos.longitude;
@@ -118,7 +101,8 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
     final userId = user?['userId'] ?? user?['id'];
 
     if (userId == null) {
-      if (kDebugMode) print('🚨 ERROR: Could not get the customer ID from AuthProvider');
+      if (kDebugMode)
+        print('🚨 ERROR: Could not get the customer ID from AuthProvider');
       if (mounted) setState(() => _isLoadingVehicles = false);
       return;
     }
@@ -129,7 +113,10 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
       // 2. Call the API
       final res = await ApiClient.get('/vehicles/owner/$userId');
 
-      if (kDebugMode) print('✅ API returned: ${res.body}'); // Print to console to inspect the real structure
+      if (kDebugMode)
+        print(
+          '✅ API returned: ${res.body}',
+        ); // Print to console to inspect the real structure
 
       final data = ApiClient.parseResponse(res);
 
@@ -154,7 +141,10 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
         });
       }
     } catch (e) {
-      if (kDebugMode) print('🚨 ERROR CALLING VEHICLES API: $e'); // Bright red console error if the API fails
+      if (kDebugMode)
+        print(
+          '🚨 ERROR CALLING VEHICLES API: $e',
+        ); // Bright red console error if the API fails
     } finally {
       if (mounted) setState(() => _isLoadingVehicles = false);
     }
@@ -163,26 +153,43 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
   // ── SUBMIT THE RESCUE REQUEST ──
   Future<void> _submitRescue() async {
     if (_selectedVehicle == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select the vehicle that broke down.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select the vehicle that broke down.'),
+        ),
+      );
       return;
     }
     if (_selectedIssue.isEmpty && _otherIssueCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please pick or enter the vehicle issue.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please pick or enter the vehicle issue.'),
+        ),
+      );
       return;
     }
     if (_lat == null || _lng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not get coordinates. Please enable GPS and try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not get coordinates. Please enable GPS and try again.',
+          ),
+        ),
+      );
       return;
     }
 
     setState(() => _isSubmitting = true);
 
     final userId = context.read<AuthProvider>().mysqlUser?['userId'];
-    final finalIssue = _selectedIssue.isNotEmpty ? _selectedIssue : _otherIssueCtrl.text.trim();
+    final finalIssue = _selectedIssue.isNotEmpty
+        ? _selectedIssue
+        : _otherIssueCtrl.text.trim();
 
+    final messenger = ScaffoldMessenger.of(context);
     try {
       // POST the rescue request to the backend
-      await ApiClient.post('/rescues', {
+      final res = await ApiClient.post('/rescues', {
         'customerId': userId,
         'vehicleId': _selectedVehicle['id'],
         'latitude': _lat,
@@ -190,18 +197,40 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
         'issueDescription': finalIssue,
       });
 
-      if (!mounted) return;
-      Navigator.pop(context); // Close the form
+      final data = ApiClient.parseResponse(res);
+      final rescueData = data is Map
+          ? Map<String, dynamic>.from(data)
+          : <String, dynamic>{};
+      final branch = rescueData['branch'];
+      final branchName = branch is Map ? branch['name']?.toString() ?? '' : '';
+      final staffName = rescueData['assignedStaffName']?.toString() ?? '';
+      final staffCode = rescueData['staffCode']?.toString() ?? '';
+      final staffPhone = rescueData['assignedStaffPhone']?.toString() ?? '';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Request sent! Finding the nearest branch...'),
-            backgroundColor: Colors.green.shade700,
-            duration: const Duration(seconds: 4),
-          )
+      final assignmentMessage = branchName.isNotEmpty && staffName.isNotEmpty
+          ? 'Rescue request sent to $branchName. '
+                '$staffName ($staffCode) will contact you in a few minutes'
+                '${staffPhone.isNotEmpty ? ' at $staffPhone' : ''}.'
+          : 'Your rescue request was sent successfully. A staff member will contact you in a few minutes.';
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(assignmentMessage),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 8),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to send the request. Please try again.')));
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -213,8 +242,12 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
 
     return Container(
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20, // Rise when the keyboard opens
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom +
+            20, // Rise when the keyboard opens
       ),
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -227,7 +260,14 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
           children: [
             // Drag handle
             Center(
-              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -235,35 +275,62 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               children: [
                 Icon(Icons.support_agent, color: Colors.red.shade500, size: 28),
                 const SizedBox(width: 8),
-                const Text('Emergency Rescue 24/7', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Emergency Rescue 24/7',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             const SizedBox(height: 20),
 
             // 1. SELECT THE BROKEN-DOWN VEHICLE
-            Text('Which vehicle has a problem?', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
+            Text(
+              'Which vehicle has a problem?',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
+              ),
+            ),
             const SizedBox(height: 8),
             if (_isLoadingVehicles)
               const Center(child: CircularProgressIndicator())
             else if (_myVehicles.isEmpty)
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                child: const Text('You have not added any vehicle yet. Please add one under "My Vehicles" first.', style: TextStyle(color: Colors.red)),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'You have not added any vehicle yet. Please add one under "My Vehicles" first.',
+                  style: TextStyle(color: Colors.red),
+                ),
               )
             else
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(border: Border.all(color: scheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  border: Border.all(color: scheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<dynamic>(
                     value: _selectedVehicle,
                     isExpanded: true,
                     hint: const Text('Select a vehicle...'),
-                    items: _myVehicles.map((v) => DropdownMenuItem(
-                      value: v,
-                      child: Text('${v['brand']} ${v['vehicleName']} - Plate: ${v['licensePlate']}', style: const TextStyle(fontWeight: FontWeight.w500)),
-                    )).toList(),
+                    items: _myVehicles
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(
+                              '${v['brand']} ${v['vehicleName']} - Plate: ${v['licensePlate']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (val) => setState(() => _selectedVehicle = val),
                   ),
                 ),
@@ -271,20 +338,39 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
             const SizedBox(height: 20),
 
             // 2. ISSUE DETAILS
-            Text('Current vehicle condition:', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
+            Text(
+              'Current vehicle condition:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
+              ),
+            ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8, runSpacing: 8,
+              spacing: 8,
+              runSpacing: 8,
               children: _issues.map((issue) {
                 final isSelected = _selectedIssue == issue;
                 return ChoiceChip(
                   label: Text(issue),
                   selected: isSelected,
                   selectedColor: Colors.red.shade100,
-                  side: BorderSide(color: isSelected ? Colors.red.shade300 : scheme.outlineVariant),
-                  labelStyle: TextStyle(color: isSelected ? Colors.red.shade800 : scheme.onSurface, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                  side: BorderSide(
+                    color: isSelected
+                        ? Colors.red.shade300
+                        : scheme.outlineVariant,
+                  ),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.red.shade800 : scheme.onSurface,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
                   onSelected: (selected) {
-                    setState(() { _selectedIssue = selected ? issue : ''; _otherIssueCtrl.clear(); });
+                    setState(() {
+                      _selectedIssue = selected ? issue : '';
+                      _otherIssueCtrl.clear();
+                    });
                   },
                 );
               }).toList(),
@@ -294,8 +380,13 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               controller: _otherIssueCtrl,
               decoration: InputDecoration(
                 hintText: 'Enter another issue (if any)...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               onChanged: (val) {
                 if (val.isNotEmpty) setState(() => _selectedIssue = '');
@@ -306,21 +397,44 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
             // 3. GPS STATUS
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: scheme.surfaceContainerLow, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Row(
                 children: [
                   Icon(
-                      _isLocating ? Icons.gps_not_fixed : (_lat != null ? Icons.gps_fixed : Icons.location_off),
-                      color: _lat != null ? Colors.blue : Colors.grey,
-                      size: 20
+                    _isLocating
+                        ? Icons.gps_not_fixed
+                        : (_lat != null ? Icons.gps_fixed : Icons.location_off),
+                    color: _lat != null ? Colors.blue : Colors.grey,
+                    size: 20,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _isLocating
-                        ? const Text('Locating your position...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                        ? const Text(
+                            'Locating your position...',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
                         : (_lat != null
-                        ? const Text('Your coordinates were recorded for the rescue team.', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13))
-                        : const Text('GPS error! Please enable location.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500))),
+                              ? const Text(
+                                  'Your coordinates were recorded for the rescue team.',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                )
+                              : const Text(
+                                  'GPS error! Please enable location.',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )),
                   ),
                 ],
               ),
@@ -332,16 +446,34 @@ class _RescueBottomSheetState extends State<RescueBottomSheet> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: (_isSubmitting || _isLocating || _myVehicles.isEmpty) ? null : _submitRescue,
+                onPressed: (_isSubmitting || _isLocating || _myVehicles.isEmpty)
+                    ? null
+                    : _submitRescue,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade600,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 2,
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('CALL RESCUE NOW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'CALL RESCUE NOW',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
               ),
             ),
           ],

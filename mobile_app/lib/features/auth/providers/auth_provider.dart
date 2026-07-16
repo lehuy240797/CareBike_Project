@@ -42,14 +42,17 @@ class AuthProvider with ChangeNotifier {
 
   bool get isGoogleAccount {
     if (_firebaseUser == null) return false;
-    return _firebaseUser!.providerData.any((info) => info.providerId == 'google.com');
+    return _firebaseUser!.providerData.any(
+      (info) => info.providerId == 'google.com',
+    );
   }
 
   /**
    * CASE 1 & 3: SIGN IN WITH GOOGLE
    */
   Future<void> signInWithGoogle(BuildContext context) async {
-    _isLoading = true; // Set the loading flag to lock the background auth-state listener.
+    _isLoading =
+        true; // Set the loading flag to lock the background auth-state listener.
     notifyListeners();
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -59,18 +62,20 @@ class AuthProvider with ChangeNotifier {
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
       // 1. Sign in to Firebase
-      UserCredential userCredential = await _auth.signInWithCredential(credential);
+      UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
 
       // 2. Send the token to Spring Boot to fetch user info
       await _syncWithSpringBoot(userCredential.user);
-
     } catch (e) {
       await logout();
       if (!context.mounted) return;
@@ -84,18 +89,19 @@ class AuthProvider with ChangeNotifier {
   /**
    * CASE 2: REGISTER WITH THE STANDARD FORM
    */
-  Future<bool> registerWithEmailForm(BuildContext context, {
+  Future<bool> registerWithEmailForm(
+    BuildContext context, {
     required String email,
     required String password,
     required String fullName,
-    required String phone
+    required String phone,
   }) async {
     _isLoading = true;
     notifyListeners();
     try {
       UserCredential credential = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(),
-          password: password
+        email: email.trim(),
+        password: password,
       );
 
       // Small delay to let Firebase propagate the new user token
@@ -105,7 +111,9 @@ class AuthProvider with ChangeNotifier {
       // Force refresh to get a fresh, fully-propagated token
       String? token = await credential.user?.getIdToken(true);
       if (token == null) {
-        throw Exception("Unable to obtain authentication token. Please try again.");
+        throw Exception(
+          "Unable to obtain authentication token. Please try again.",
+        );
       }
 
       debugPrint("[CareBike] Register token length: ${token.length}");
@@ -115,10 +123,14 @@ class AuthProvider with ChangeNotifier {
       http.Response response = await http.post(
         Uri.parse('${ApiClient.baseUrl}/auth/register'),
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'email': email, 'fullName': fullName, 'phone': phone}),
+        body: jsonEncode({
+          'email': email,
+          'fullName': fullName,
+          'phone': phone,
+        }),
       );
 
       // Retry once if 401 — token may not have propagated yet
@@ -129,10 +141,14 @@ class AuthProvider with ChangeNotifier {
         response = await http.post(
           Uri.parse('${ApiClient.baseUrl}/auth/register'),
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=UTF-8',
             'Authorization': 'Bearer $token',
           },
-          body: jsonEncode({'email': email, 'fullName': fullName, 'phone': phone}),
+          body: jsonEncode({
+            'email': email,
+            'fullName': fullName,
+            'phone': phone,
+          }),
         );
       }
 
@@ -140,8 +156,10 @@ class AuthProvider with ChangeNotifier {
         if (_auth.currentUser != null) {
           await credential.user?.delete();
         }
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? "System is busy. Please try again later.");
+        final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(
+          errorData['message'] ?? "System is busy. Please try again later.",
+        );
       }
 
       await logout();
@@ -159,13 +177,17 @@ class AuthProvider with ChangeNotifier {
   /**
    * SIGN IN WITH THE STANDARD FORM
    */
-  Future<void> signInWithEmailForm(BuildContext context, String email, String password) async {
+  Future<void> signInWithEmailForm(
+    BuildContext context,
+    String email,
+    String password,
+  ) async {
     _isLoading = true;
     notifyListeners();
     try {
       UserCredential credential = await _auth.signInWithEmailAndPassword(
-          email: email.trim(),
-          password: password
+        email: email.trim(),
+        password: password,
       );
       await _syncWithSpringBoot(credential.user);
     } catch (e) {
@@ -178,41 +200,60 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> sendForgotPasswordEmail(BuildContext context, String email) async {
+  Future<void> sendForgotPasswordEmail(
+    BuildContext context,
+    String email,
+  ) async {
     if (email.trim().isEmpty) return;
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
-      _showSuccessDialog(context, "Sent Successfully", "A password reset link has been sent to your email. Please check your inbox or spam folder.");
+      _showSuccessDialog(
+        context,
+        "Sent Successfully",
+        "A password reset link has been sent to your email. Please check your inbox or spam folder.",
+      );
     } catch (e) {
       _showErrorDialog(context, _getFriendlyErrorMessage(e.toString()));
     }
   }
 
-  Future<void> changePassword(BuildContext context, String currentPassword, String newPassword) async {
+  Future<void> changePassword(
+    BuildContext context,
+    String currentPassword,
+    String newPassword,
+  ) async {
     if (_firebaseUser == null) return;
 
     if (isGoogleAccount) {
       _showErrorDialog(
-          context,
-          "Your account is protected by Google. To change your password, please do so on your Google Account Management page.",
-          title: "Notification"
+        context,
+        "Your account is protected by Google. To change your password, please do so on your Google Account Management page.",
+        title: "Notification",
       );
       return;
     }
 
     try {
       AuthCredential credential = EmailAuthProvider.credential(
-          email: _firebaseUser!.email!,
-          password: currentPassword
+        email: _firebaseUser!.email!,
+        password: currentPassword,
       );
       await _firebaseUser!.reauthenticateWithCredential(credential);
       await _firebaseUser!.updatePassword(newPassword);
 
-      _showSuccessDialog(context, "Success", "Your password has been securely updated.");
+      _showSuccessDialog(
+        context,
+        "Success",
+        "Your password has been securely updated.",
+      );
     } catch (e) {
       String errorMsg = e.toString();
-      if (errorMsg.contains('wrong-password') || errorMsg.contains('invalid-credential')) {
-        _showErrorDialog(context, "The current password is incorrect. Please double check.");
+      if (errorMsg.contains('wrong-password') ||
+          errorMsg.contains('invalid-credential')) {
+        _showErrorDialog(
+          context,
+          "The current password is incorrect. Please double check.",
+        );
       } else {
         _showErrorDialog(context, _getFriendlyErrorMessage(errorMsg));
       }
@@ -227,19 +268,21 @@ class AuthProvider with ChangeNotifier {
     final response = await http.post(
       Uri.parse('${ApiClient.baseUrl}/auth/login'),
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token',
         'X-Client-Type': 'MOBILE',
       },
     );
 
     if (response.statusCode == 200) {
-      _mysqlUser = jsonDecode(response.body);
+      _mysqlUser = jsonDecode(utf8.decode(response.bodyBytes));
       await PushNotificationService.instance.registerDeviceToken();
       notifyListeners();
     } else {
-      final errorData = jsonDecode(response.body);
-      throw Exception(errorData['message'] ?? "Security reason: System denied access.");
+      final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(
+        errorData['message'] ?? "Security reason: System denied access.",
+      );
     }
   }
 
@@ -261,19 +304,36 @@ class AuthProvider with ChangeNotifier {
 
   String _getFriendlyErrorMessage(String rawError) {
     final error = rawError.toLowerCase();
-    if (error.contains('email-already-in-use')) return "This email is already in use. Please log in or use another email.";
-    if (error.contains('invalid-credential') || error.contains('wrong-password') || error.contains('user-not-found')) return "Incorrect login info. Please double check your email and password.";
-    if (error.contains('user-disabled')) return "Your account has been temporarily disabled. Please contact support.";
-    if (error.contains('too-many-requests')) return "Too many failed attempts. Please try again later for your safety.";
-    if (error.contains('network-request-failed')) return "No network connection. Please check your Wifi/4G.";
-    if (error.contains('invalid-email')) return "Invalid email format. For example: yourname@gmail.com";
+    if (error.contains('email-already-in-use'))
+      return "This email is already in use. Please log in or use another email.";
+    if (error.contains('invalid-credential') ||
+        error.contains('wrong-password') ||
+        error.contains('user-not-found'))
+      return "Incorrect login info. Please double check your email and password.";
+    if (error.contains('user-disabled'))
+      return "Your account has been temporarily disabled. Please contact support.";
+    if (error.contains('too-many-requests'))
+      return "Too many failed attempts. Please try again later for your safety.";
+    if (error.contains('network-request-failed'))
+      return "No network connection. Please check your Wifi/4G.";
+    if (error.contains('invalid-email'))
+      return "Invalid email format. For example: yourname@gmail.com";
 
-    String cleanError = rawError.replaceAll(RegExp(r'^Exception:\s*'), '').trim();
-    if (cleanError.contains('PlatformException')) return "A connection error occurred. Please try again.";
-    return cleanError.isNotEmpty ? cleanError : "System is under maintenance or encountering issues. Please try again later.";
+    String cleanError = rawError
+        .replaceAll(RegExp(r'^Exception:\s*'), '')
+        .trim();
+    if (cleanError.contains('PlatformException'))
+      return "A connection error occurred. Please try again.";
+    return cleanError.isNotEmpty
+        ? cleanError
+        : "System is under maintenance or encountering issues. Please try again later.";
   }
 
-  void _showErrorDialog(BuildContext context, String message, {String title = "An error occurred"}) {
+  void _showErrorDialog(
+    BuildContext context,
+    String message, {
+    String title = "An error occurred",
+  }) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -282,11 +342,22 @@ class AuthProvider with ChangeNotifier {
           children: [
             const Icon(Icons.error_outline, color: Colors.red),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
           ],
         ),
-        content: Text(message, style: const TextStyle(fontSize: 15, height: 1.4)),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close", style: TextStyle(fontSize: 16)))],
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 15, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Close", style: TextStyle(fontSize: 16)),
+          ),
+        ],
       ),
     );
   }
@@ -300,11 +371,26 @@ class AuthProvider with ChangeNotifier {
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.green),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
           ],
         ),
-        content: Text(message, style: const TextStyle(fontSize: 15, height: 1.4)),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Confirm", style: TextStyle(fontSize: 16)))],
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 15, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Confirm", style: TextStyle(fontSize: 16)),
+          ),
+        ],
       ),
     );
   }

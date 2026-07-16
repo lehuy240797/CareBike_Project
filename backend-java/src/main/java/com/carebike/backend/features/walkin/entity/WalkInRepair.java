@@ -20,13 +20,13 @@ public class WalkInRepair {
     @JoinColumn(name = "branch_id", nullable = false)
     private Branch branch;
 
-    @Column(name = "customer_name", nullable = false)
+    @Column(name = "customer_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String customerName;
 
     @Column(name = "customer_phone", nullable = false, length = 30)
     private String customerPhone;
 
-    @Column(name = "vehicle_name", nullable = false)
+    @Column(name = "vehicle_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String vehicleName;
 
     @Column(name = "vehicle_plate", nullable = false, length = 30)
@@ -47,10 +47,10 @@ public class WalkInRepair {
     @Column(name = "staff_code", length = 20)
     private String staffCode;
 
-    @Column(name = "staff_name")
+    @Column(name = "staff_name", columnDefinition = "NVARCHAR(255)")
     private String staffName;
 
-    @Column(name = "invoice_details", columnDefinition = "TEXT")
+    @Column(name = "invoice_details", columnDefinition = "NVARCHAR(MAX)")
     private String invoiceDetails;
 
     @Column(name = "total_cost", precision = 12, scale = 2)

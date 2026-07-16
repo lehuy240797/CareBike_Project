@@ -12,6 +12,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryService {
     private final CategoryRepository repository;
+    private final com.carebike.backend.features.websocket.service.WebSocketEventService webSocketEventService;
 
     public List<CategoryDto> getAllCategories() {
         return repository.findAll().stream()
@@ -25,10 +26,12 @@ public class CategoryService {
                 .description(request.description())
                 .build();
         category = repository.save(category);
+        webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
         return new CategoryDto(category.getId(), category.getName(), category.getDescription());
     }
 
     public void deleteCategory(Integer id) {
         repository.deleteById(id);
+        webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
     }
 }

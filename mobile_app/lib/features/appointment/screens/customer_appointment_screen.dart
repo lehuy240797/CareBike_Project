@@ -73,7 +73,7 @@ class _CustomerAppointmentScreenState extends State<CustomerAppointmentScreen> {
         Uri.parse('${ApiClient.baseUrl}/appointments/customer/$customerId'),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
         },
       );
 

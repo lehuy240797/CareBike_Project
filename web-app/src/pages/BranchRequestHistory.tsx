@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Bike,
@@ -10,19 +10,22 @@ import {
   FileText,
   History,
   Phone,
+  Printer,
   ReceiptText,
   RefreshCw,
   Search,
+  Download,
   UserRound,
   Wrench,
   X,
   XCircle,
   type LucideIcon,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import apiClient from '../services/apiClient';
-import { getMaintenanceByCustomer } from '../services/maintenanceService';
-import { useAuth } from '../context/AuthContext';
+} from "lucide-react";
+import toast from "react-hot-toast";
+import apiClient from "../services/apiClient";
+import { getMaintenanceByCustomer } from "../services/maintenanceService";
+import { useAuth } from "../context/AuthContext";
+import { useWebSocketEvent } from "../context/WebSocketContext";
 import {
   dashTitle,
   dataTable,
@@ -35,12 +38,12 @@ import {
   tableScroll,
   tdCell,
   thCell,
-} from '../ui/styles';
+} from "../ui/styles";
 
 interface RequestRecord {
   id: number;
-  type: 'RESCUE' | 'APPOINTMENT';
-  sourceType?: 'RESCUE' | 'APPOINTMENT' | 'WALK_IN' | string;
+  type: "RESCUE" | "APPOINTMENT";
+  sourceType?: "RESCUE" | "APPOINTMENT" | "WALK_IN" | string;
   status: string;
   customer?: ApiObject;
   customerName?: string;
@@ -64,7 +67,7 @@ interface RequestRecord {
   [key: string]: unknown;
 }
 
-type TabKey = 'RESCUE' | 'APPOINTMENT';
+type TabKey = "RESCUE" | "APPOINTMENT";
 type ApiObject = Record<string, unknown>;
 
 interface InvoiceItem {
@@ -74,7 +77,7 @@ interface InvoiceItem {
 }
 
 interface InvoiceData {
-  sourceType?: 'RESCUE' | 'APPOINTMENT' | string;
+  sourceType?: "RESCUE" | "APPOINTMENT" | string;
   appointmentId?: number;
   date?: string;
   customerName?: string;
@@ -100,105 +103,127 @@ interface MaintenanceHistoryRecord {
 }
 
 const tabs: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
-  { key: 'RESCUE', label: 'Rescues', icon: AlertTriangle },
-  { key: 'APPOINTMENT', label: 'Appointments', icon: CalendarDays },
+  { key: "RESCUE", label: "Rescues", icon: AlertTriangle },
+  { key: "APPOINTMENT", label: "Appointments", icon: CalendarDays },
 ];
 
 const PAGE_SIZE = 10;
 const monthChoices = [
-  { value: '01', label: 'January' },
-  { value: '02', label: 'February' },
-  { value: '03', label: 'March' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'May' },
-  { value: '06', label: 'June' },
-  { value: '07', label: 'July' },
-  { value: '08', label: 'August' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' },
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
 ];
 
 const BranchRequestHistory = () => {
   const { user } = useAuth();
   const branchId = (user as { branchId?: number } | null)?.branchId;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('RESCUE');
+  const [activeTab, setActiveTab] = useState<TabKey>("RESCUE");
   const [rescues, setRescues] = useState<RequestRecord[]>([]);
   const [appointments, setAppointments] = useState<RequestRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterMonth, setFilterMonth] = useState('');
-  const [filterYear, setFilterYear] = useState('');
-  const [openFilterMenu, setOpenFilterMenu] = useState<'month' | 'year' | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+  const [openFilterMenu, setOpenFilterMenu] = useState<"month" | "year" | null>(
+    null,
+  );
   const [page, setPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<RequestRecord | null>(null);
 
-  const fetchData = useCallback(async () => {
-    if (!branchId) return;
-    setIsLoading(true);
-    const [rescueResult, appointmentResult, walkInResult] = await Promise.allSettled([
-      apiClient.get(`/rescues/branch/${branchId}`),
-      apiClient.get(`/appointments/branch/${branchId}`),
-      apiClient.get(`/walk-in-repairs/branch/${branchId}`),
-    ]);
+  const fetchData = useCallback(
+    async (background = false) => {
+      if (!branchId) return;
+      if (!background) setIsLoading(true);
 
-    if (rescueResult.status === 'fulfilled') {
-      const rescueData = rescueResult.value.data as ApiObject[];
-      const mappedRescues = rescueData.map((r) => ({
-        ...r,
-        type: 'RESCUE',
-      })) as RequestRecord[];
-      mappedRescues.sort((a: RequestRecord, b: RequestRecord) => b.id - a.id);
-      setRescues(mappedRescues);
-    } else {
-      console.error('Failed to load rescues', rescueResult.reason);
-      toast.error(`Failed to load rescues: ${apiErrorLabel(rescueResult.reason)}`);
-    }
+      const [rescueResult, appointmentResult, walkInResult] =
+        await Promise.allSettled([
+          apiClient.get(`/rescues/branch/${branchId}`),
+          apiClient.get(`/appointments/branch/${branchId}`),
+          apiClient.get(`/walk-in-repairs/branch/${branchId}`),
+        ]);
 
-    if (appointmentResult.status === 'fulfilled') {
-      const appointmentData = appointmentResult.value.data as ApiObject[];
-      const mappedAppointments = appointmentData.map((a) => ({
-        ...a,
-        type: 'APPOINTMENT',
-        sourceType: 'APPOINTMENT',
-      })) as RequestRecord[];
-
-      let mappedWalkIns: RequestRecord[] = [];
-      if (walkInResult.status === 'fulfilled') {
-        const walkInData = walkInResult.value.data as ApiObject[];
-        mappedWalkIns = walkInData.map((record) => ({
-          ...record,
-          type: 'APPOINTMENT',
-          sourceType: 'WALK_IN',
-          appointmentInvoice: parseInvoice(asText(record.invoiceDetails)),
+      if (rescueResult.status === "fulfilled") {
+        const rescueData = rescueResult.value.data as ApiObject[];
+        const mappedRescues = rescueData.map((r) => ({
+          ...r,
+          type: "RESCUE",
         })) as RequestRecord[];
+        mappedRescues.sort((a: RequestRecord, b: RequestRecord) => b.id - a.id);
+        setRescues(mappedRescues);
       } else {
-        console.error('Failed to load walk-in repairs', walkInResult.reason);
-        toast.error(`Failed to load walk-in repairs: ${apiErrorLabel(walkInResult.reason)}`);
+        console.error("Failed to load rescues", rescueResult.reason);
+        toast.error(
+          `Failed to load rescues: ${apiErrorLabel(rescueResult.reason)}`,
+        );
       }
 
-      const enrichedAppointments = await enrichAppointmentsWithInvoices([
-        ...mappedAppointments,
-        ...mappedWalkIns,
-      ]);
-      enrichedAppointments.sort(sortByRequestTimeDesc);
-      setAppointments(enrichedAppointments);
-    } else {
-      console.error('Failed to load appointments', appointmentResult.reason);
-      toast.error(`Failed to load appointments: ${apiErrorLabel(appointmentResult.reason)}`);
-    }
+      if (appointmentResult.status === "fulfilled") {
+        const appointmentData = appointmentResult.value.data as ApiObject[];
+        const mappedAppointments = appointmentData.map((a) => ({
+          ...a,
+          type: "APPOINTMENT",
+          sourceType: "APPOINTMENT",
+        })) as RequestRecord[];
 
-    setIsLoading(false);
-  }, [branchId]);
+        let mappedWalkIns: RequestRecord[] = [];
+        if (walkInResult.status === "fulfilled") {
+          const walkInData = walkInResult.value.data as ApiObject[];
+          mappedWalkIns = walkInData.map((record) => ({
+            ...record,
+            type: "APPOINTMENT",
+            sourceType: "WALK_IN",
+            appointmentInvoice: parseInvoice(asText(record.invoiceDetails)),
+          })) as RequestRecord[];
+        } else {
+          console.error("Failed to load walk-in repairs", walkInResult.reason);
+          toast.error(
+            `Failed to load walk-in repairs: ${apiErrorLabel(walkInResult.reason)}`,
+          );
+        }
+
+        const enrichedAppointments = await enrichAppointmentsWithInvoices([
+          ...mappedAppointments,
+          ...mappedWalkIns,
+        ]);
+        enrichedAppointments.sort(sortByRequestTimeDesc);
+        setAppointments(enrichedAppointments);
+      } else {
+        console.error("Failed to load appointments", appointmentResult.reason);
+        toast.error(
+          `Failed to load appointments: ${apiErrorLabel(appointmentResult.reason)}`,
+        );
+      }
+
+      if (!background) setIsLoading(false);
+    },
+    [branchId],
+  );
+
+  const refreshInBackground = useCallback(() => {
+    void fetchData(true);
+  }, [fetchData]);
+
+  useWebSocketEvent("APPOINTMENT_UPDATED", refreshInBackground);
+  useWebSocketEvent("RESCUE_UPDATED", refreshInBackground);
+  useWebSocketEvent("MAINTENANCE_UPDATED", refreshInBackground);
+
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
   }, [fetchData]);
 
-  const activeList = activeTab === 'RESCUE' ? rescues : appointments;
+  const activeList = activeTab === "RESCUE" ? rescues : appointments;
 
   const availableYears = useMemo(() => {
     const years = activeList
@@ -210,19 +235,20 @@ const BranchRequestHistory = () => {
   }, [activeList]);
 
   const filteredList = useMemo(() => {
-    const dateFiltered = filterMonth || filterYear
-      ? activeList.filter((item) => {
-        const date = new Date(requestTime(item));
-        if (Number.isNaN(date.getTime())) return false;
+    const dateFiltered =
+      filterMonth || filterYear
+        ? activeList.filter((item) => {
+            const date = new Date(requestTime(item));
+            if (Number.isNaN(date.getTime())) return false;
 
-        const itemMonth = String(date.getMonth() + 1).padStart(2, '0');
-        const itemYear = String(date.getFullYear());
-        const monthMatches = !filterMonth || itemMonth === filterMonth;
-        const yearMatches = !filterYear || itemYear === filterYear;
+            const itemMonth = String(date.getMonth() + 1).padStart(2, "0");
+            const itemYear = String(date.getFullYear());
+            const monthMatches = !filterMonth || itemMonth === filterMonth;
+            const yearMatches = !filterYear || itemYear === filterYear;
 
-        return monthMatches && yearMatches;
-      })
-      : activeList;
+            return monthMatches && yearMatches;
+          })
+        : activeList;
 
     if (!searchTerm) return dateFiltered;
     const lowerTerm = searchTerm.toLowerCase();
@@ -234,7 +260,7 @@ const BranchRequestHistory = () => {
         vehiclePlate(item),
       ]
         .filter(Boolean)
-        .join(' ')
+        .join(" ")
         .toLowerCase();
 
       return haystack.includes(lowerTerm);
@@ -254,13 +280,66 @@ const BranchRequestHistory = () => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  const completedCount = activeList.filter((item) => item.status === 'COMPLETED').length;
+  const completedCount = activeList.filter(
+    (item) => item.status === "COMPLETED",
+  ).length;
   const pendingCount = activeList.filter((item) =>
-    ['PENDING', 'ACCEPTED', 'CONFIRMED'].includes(item.status),
+    ["PENDING", "ACCEPTED", "CONFIRMED"].includes(item.status),
   ).length;
   const selectedMonthLabel =
-    monthChoices.find((month) => month.value === filterMonth)?.label || 'All months';
-  const selectedYearLabel = filterYear || 'All years';
+    monthChoices.find((month) => month.value === filterMonth)?.label ||
+    "All months";
+  const selectedYearLabel = filterYear || "All years";
+
+  const handleExportCSV = () => {
+    if (filteredList.length === 0) {
+      toast.error("No data to export!");
+      return;
+    }
+
+    const headers = [
+      "ID",
+      "Type",
+      "Customer",
+      "Phone",
+      "Vehicle",
+      "Plate",
+      "Time",
+      "Status",
+      "Total Cost",
+    ];
+    const rows = filteredList.map((item) => [
+      item.id,
+      item.type,
+      `"${customerName(item)}"`,
+      `"${customerPhone(item) || ""}"`,
+      `"${vehicleName(item) || ""}"`,
+      `"${vehiclePlate(item) || ""}"`,
+      `"${formatDate(requestTime(item))}"`,
+      item.status,
+      item.type === "RESCUE"
+        ? item.totalCost || item.transportFee || 0
+        : item.appointmentInvoice?.totalAmount || 0,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((e) => e.join(",")),
+    ].join("\n");
+    const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `${activeTab}_history_${new Date().getTime()}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="mx-auto max-w-[76rem] animate-fade-up">
@@ -273,20 +352,46 @@ const BranchRequestHistory = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchData}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-edge bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:text-primary"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-deep"
+          >
+            <Download size={16} />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void fetchData();
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-edge bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:text-primary"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-3">
-        <SummaryCard title="Total records" value={activeList.length} icon={History} />
-        <SummaryCard title="In progress" value={pendingCount} icon={Clock} tone="amber" />
-        <SummaryCard title="Completed" value={completedCount} icon={CheckCircle} tone="green" />
+        <SummaryCard
+          title="Total records"
+          value={activeList.length}
+          icon={History}
+        />
+        <SummaryCard
+          title="In progress"
+          value={pendingCount}
+          icon={Clock}
+          tone="amber"
+        />
+        <SummaryCard
+          title="Completed"
+          value={completedCount}
+          icon={CheckCircle}
+          tone="green"
+        />
       </div>
 
       <div className="mb-5 rounded-3xl border border-edge bg-white p-4 shadow-sm">
@@ -302,8 +407,8 @@ const BranchRequestHistory = () => {
                   onClick={() => setActiveTab(tab.key)}
                   className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all duration-200 ${
                     active
-                      ? 'bg-primary text-white shadow-glow-sm'
-                      : 'text-ink-muted hover:bg-white hover:text-primary'
+                      ? "bg-primary text-white shadow-glow-sm"
+                      : "text-ink-muted hover:bg-white hover:text-primary"
                   }`}
                 >
                   <Icon size={16} />
@@ -331,7 +436,9 @@ const BranchRequestHistory = () => {
             <CalendarDays size={18} className="shrink-0 text-primary" />
             <button
               type="button"
-              onClick={() => setOpenFilterMenu(openFilterMenu === 'month' ? null : 'month')}
+              onClick={() =>
+                setOpenFilterMenu(openFilterMenu === "month" ? null : "month")
+              }
               className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl bg-primary-light px-3 py-2 text-left text-sm font-bold text-ink transition hover:bg-primary/10 focus:outline-none focus:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
             >
               <span className="truncate">{selectedMonthLabel}</span>
@@ -339,7 +446,9 @@ const BranchRequestHistory = () => {
             </button>
             <button
               type="button"
-              onClick={() => setOpenFilterMenu(openFilterMenu === 'year' ? null : 'year')}
+              onClick={() =>
+                setOpenFilterMenu(openFilterMenu === "year" ? null : "year")
+              }
               className="inline-flex w-28 items-center justify-between gap-2 rounded-xl bg-primary-light px-3 py-2 text-left text-sm font-bold text-ink transition hover:bg-primary/10 focus:outline-none focus:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
             >
               <span className="truncate">{selectedYearLabel}</span>
@@ -348,8 +457,8 @@ const BranchRequestHistory = () => {
             <button
               type="button"
               onClick={() => {
-                setFilterMonth('');
-                setFilterYear('');
+                setFilterMonth("");
+                setFilterYear("");
                 setOpenFilterMenu(null);
               }}
               disabled={!filterMonth && !filterYear}
@@ -359,16 +468,18 @@ const BranchRequestHistory = () => {
               <X size={17} />
             </button>
 
-            {openFilterMenu === 'month' && (
+            {openFilterMenu === "month" && (
               <div className="absolute left-10 top-[calc(100%+0.5rem)] z-30 w-56 overflow-hidden rounded-2xl border border-edge bg-white p-2 shadow-float">
                 <button
                   type="button"
                   onClick={() => {
-                    setFilterMonth('');
+                    setFilterMonth("");
                     setOpenFilterMenu(null);
                   }}
                   className={`flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
-                    !filterMonth ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                    !filterMonth
+                      ? "bg-primary text-white"
+                      : "text-ink hover:bg-primary-light hover:text-primary"
                   }`}
                 >
                   All months
@@ -385,7 +496,9 @@ const BranchRequestHistory = () => {
                           setOpenFilterMenu(null);
                         }}
                         className={`rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
-                          active ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                          active
+                            ? "bg-primary text-white"
+                            : "text-ink hover:bg-primary-light hover:text-primary"
                         }`}
                       >
                         {month.label.slice(0, 3)}
@@ -396,16 +509,18 @@ const BranchRequestHistory = () => {
               </div>
             )}
 
-            {openFilterMenu === 'year' && (
+            {openFilterMenu === "year" && (
               <div className="absolute right-14 top-[calc(100%+0.5rem)] z-30 max-h-72 w-40 overflow-y-auto rounded-2xl border border-edge bg-white p-2 shadow-float">
                 <button
                   type="button"
                   onClick={() => {
-                    setFilterYear('');
+                    setFilterYear("");
                     setOpenFilterMenu(null);
                   }}
                   className={`flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
-                    !filterYear ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                    !filterYear
+                      ? "bg-primary text-white"
+                      : "text-ink hover:bg-primary-light hover:text-primary"
                   }`}
                 >
                   All years
@@ -421,7 +536,9 @@ const BranchRequestHistory = () => {
                         setOpenFilterMenu(null);
                       }}
                       className={`mt-1 flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold transition ${
-                        active ? 'bg-primary text-white' : 'text-ink hover:bg-primary-light hover:text-primary'
+                        active
+                          ? "bg-primary text-white"
+                          : "text-ink hover:bg-primary-light hover:text-primary"
                       }`}
                     >
                       {year}
@@ -468,11 +585,14 @@ const BranchRequestHistory = () => {
                 </tr>
               ) : (
                 pagedList.map((item) => (
-                  <tr key={`${item.type}-${item.sourceType || 'DEFAULT'}-${item.id}`} className={tableRow}>
+                  <tr
+                    key={`${item.type}-${item.sourceType || "DEFAULT"}-${item.id}`}
+                    className={tableRow}
+                  >
                     <td className={tdCell}>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
-                          {item.type === 'RESCUE' ? (
+                          {item.type === "RESCUE" ? (
                             <AlertTriangle size={18} />
                           ) : (
                             <CalendarDays size={18} />
@@ -481,21 +601,23 @@ const BranchRequestHistory = () => {
                         <div>
                           <p className="m-0 font-bold text-ink">#{item.id}</p>
                           <p className="m-0 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                            {item.type === 'RESCUE'
-                              ? 'Rescue'
-                              : item.sourceType === 'WALK_IN'
-                                ? 'Walk-in'
-                                : 'Appointment'}
+                            {item.type === "RESCUE"
+                              ? "Rescue"
+                              : item.sourceType === "WALK_IN"
+                                ? "Walk-in"
+                                : "Appointment"}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className={tdCell}>
                       <div className="flex flex-col">
-                        <span className="font-semibold text-ink">{customerName(item)}</span>
+                        <span className="font-semibold text-ink">
+                          {customerName(item)}
+                        </span>
                         <span className="inline-flex items-center gap-1 text-sm text-ink-muted">
                           <Phone size={13} />
-                          {customerPhone(item) || 'No phone'}
+                          {customerPhone(item) || "No phone"}
                         </span>
                       </div>
                     </td>
@@ -503,10 +625,10 @@ const BranchRequestHistory = () => {
                       <div className="flex flex-col">
                         <span className="inline-flex items-center gap-1 font-semibold text-ink">
                           <Bike size={14} />
-                          {vehicleName(item) || 'No vehicle'}
+                          {vehicleName(item) || "No vehicle"}
                         </span>
                         <span className="text-sm text-ink-muted">
-                          {vehiclePlate(item) || 'No plate'}
+                          {vehiclePlate(item) || "No plate"}
                         </span>
                       </div>
                     </td>
@@ -531,7 +653,9 @@ const BranchRequestHistory = () => {
         {!isLoading && filteredList.length > 0 && (
           <div className="flex flex-col gap-3 border-t border-edge px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="m-0 text-sm font-medium text-ink-muted">
-              Showing {pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, filteredList.length)} of {filteredList.length}
+              Showing {pageStart + 1}-
+              {Math.min(pageStart + PAGE_SIZE, filteredList.length)} of{" "}
+              {filteredList.length}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -547,7 +671,9 @@ const BranchRequestHistory = () => {
               </span>
               <button
                 type="button"
-                onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                onClick={() =>
+                  setPage((value) => Math.min(totalPages, value + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="rounded-xl border border-edge bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-edge disabled:hover:text-ink"
               >
@@ -572,19 +698,19 @@ const SummaryCard = ({
   title,
   value,
   icon: Icon,
-  tone = 'orange',
+  tone = "orange",
 }: {
   title: string;
   value: number;
   icon: LucideIcon;
-  tone?: 'orange' | 'amber' | 'green';
+  tone?: "orange" | "amber" | "green";
 }) => {
   const toneClass =
-    tone === 'green'
-      ? 'bg-green-50 text-green-700'
-      : tone === 'amber'
-        ? 'bg-amber-50 text-amber-700'
-        : 'bg-primary-light text-primary';
+    tone === "green"
+      ? "bg-green-50 text-green-700"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700"
+        : "bg-primary-light text-primary";
 
   return (
     <div className="rounded-3xl border border-edge bg-white p-5 shadow-card">
@@ -595,7 +721,9 @@ const SummaryCard = ({
             {value}
           </p>
         </div>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${toneClass}`}>
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${toneClass}`}
+        >
           <Icon size={22} />
         </div>
       </div>
@@ -611,8 +739,10 @@ const DetailModal = ({
   onClose: () => void;
 }) => {
   const rescueInvoice = parseInvoice(item.invoiceDetails);
-  const [appointmentInvoice, setAppointmentInvoice] = useState<InvoiceData | null>(null);
-  const [appointmentInvoiceLoading, setAppointmentInvoiceLoading] = useState(false);
+  const [appointmentInvoice, setAppointmentInvoice] =
+    useState<InvoiceData | null>(null);
+  const [appointmentInvoiceLoading, setAppointmentInvoiceLoading] =
+    useState(false);
   const embeddedAppointmentInvoice = useMemo(
     () => item.appointmentInvoice || parseInvoice(item.invoiceDetails),
     [item.appointmentInvoice, item.invoiceDetails],
@@ -620,7 +750,7 @@ const DetailModal = ({
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
     return () => {
       document.body.style.overflow = previousOverflow;
@@ -628,7 +758,7 @@ const DetailModal = ({
   }, []);
 
   useEffect(() => {
-    if (item.type !== 'APPOINTMENT') {
+    if (item.type !== "APPOINTMENT") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAppointmentInvoice(null);
       return;
@@ -640,7 +770,7 @@ const DetailModal = ({
       return;
     }
 
-    if (item.status !== 'COMPLETED') {
+    if (item.status !== "COMPLETED") {
       setAppointmentInvoice(null);
       return;
     }
@@ -660,10 +790,12 @@ const DetailModal = ({
         setAppointmentInvoice(findAppointmentInvoice(item, records));
       })
       .catch((error) => {
-        console.error('Failed to load appointment invoice', error);
+        console.error("Failed to load appointment invoice", error);
         if (!cancelled) {
           setAppointmentInvoice(null);
-          toast.error(`Failed to load appointment invoice: ${apiErrorLabel(error)}`);
+          toast.error(
+            `Failed to load appointment invoice: ${apiErrorLabel(error)}`,
+          );
         }
       })
       .finally(() => {
@@ -690,9 +822,11 @@ const DetailModal = ({
       >
         <div className="flex items-start justify-between gap-5 border-b border-edge bg-white px-6 py-5">
           <div>
-            <p className={eyebrow}>{item.type === 'RESCUE' ? 'Rescue detail' : 'Appointment detail'}</p>
+            <p className={eyebrow}>
+              {item.type === "RESCUE" ? "Rescue detail" : "Appointment detail"}
+            </p>
             <h2 className="m-0 mt-1 font-display text-2xl font-black text-ink">
-              {item.sourceType === 'WALK_IN' ? 'Walk-in' : 'Request'} #{item.id}
+              {item.sourceType === "WALK_IN" ? "Walk-in" : "Request"} #{item.id}
             </h2>
             <p className={pageSubtitle}>{formatDate(requestTime(item))}</p>
           </div>
@@ -706,42 +840,64 @@ const DetailModal = ({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-5">
+        <div id="print-section" className="overflow-y-auto px-6 py-5">
           <div className="mb-5 grid gap-3 md:grid-cols-2">
             <InfoCard
               icon={UserRound}
               label="Customer"
               title={customerName(displayItem)}
-              detail={customerPhone(displayItem) || 'No phone'}
+              detail={customerPhone(displayItem) || "No phone"}
             />
             <InfoCard
               icon={Bike}
               label="Vehicle"
-              title={vehicleName(displayItem) || 'No vehicle'}
-              detail={vehiclePlate(displayItem) || 'No plate'}
+              title={vehicleName(displayItem) || "No vehicle"}
+              detail={vehiclePlate(displayItem) || "No plate"}
             />
           </div>
 
           <div className="mb-5 rounded-2xl border border-edge bg-white p-4 shadow-sm">
-            {item.type === 'RESCUE' ? (
+            {item.type === "RESCUE" ? (
               <div className="grid gap-3 text-sm text-ink md:grid-cols-2">
-                <DetailLine label="Staff Code" value={item.staffCode || 'Not updated'} />
-                <DetailLine label="Distance" value={item.distanceKm ? `${item.distanceKm.toFixed(2)} km` : 'N/A'} />
-                <DetailLine label="Issue" value={item.issueDescription || 'N/A'} wide />
-                <DetailLine label="Status" value={statusBadge(item.status)} wide />
+                <DetailLine
+                  label="Staff Code"
+                  value={item.staffCode || "Not updated"}
+                />
+                <DetailLine
+                  label="Distance"
+                  value={
+                    item.distanceKm ? `${item.distanceKm.toFixed(2)} km` : "N/A"
+                  }
+                />
+                <DetailLine
+                  label="Issue"
+                  value={item.issueDescription || "N/A"}
+                  wide
+                />
+                <DetailLine
+                  label="Status"
+                  value={statusBadge(item.status)}
+                  wide
+                />
               </div>
             ) : (
               <div className="grid gap-3 text-sm text-ink md:grid-cols-2">
-                <DetailLine label="Appointment Time" value={formatDate(item.appointmentDate)} />
+                <DetailLine
+                  label="Appointment Time"
+                  value={formatDate(item.appointmentDate)}
+                />
                 <DetailLine label="Status" value={statusBadge(item.status)} />
-                <DetailLine label="Note" value={item.note || 'None'} wide />
+                <DetailLine label="Note" value={item.note || "None"} wide />
               </div>
             )}
           </div>
 
-          {item.type === 'RESCUE' && rescueInvoice ? (
-            <InvoiceCard invoice={rescueInvoice} serviceLabel="Motorcycle Rescue Service" />
-          ) : item.type === 'RESCUE' ? (
+          {item.type === "RESCUE" && rescueInvoice ? (
+            <InvoiceCard
+              invoice={rescueInvoice}
+              serviceLabel="Motorcycle Rescue Service"
+            />
+          ) : item.type === "RESCUE" ? (
             <LegacyInvoice item={item} />
           ) : appointmentInvoiceLoading ? (
             <div className="rounded-3xl border border-edge bg-white p-6 text-center text-ink-muted shadow-sm">
@@ -749,16 +905,28 @@ const DetailModal = ({
               Loading invoice from maintenance history...
             </div>
           ) : displayItem.appointmentInvoice ? (
-            <InvoiceCard invoice={displayItem.appointmentInvoice} serviceLabel="Maintenance Service" />
+            <InvoiceCard
+              invoice={displayItem.appointmentInvoice}
+              serviceLabel="Maintenance Service"
+            />
           ) : (
             <div className="rounded-3xl border border-edge bg-white p-6 text-center text-ink-muted shadow-sm">
               <CalendarDays size={34} className="mx-auto mb-3 text-primary" />
-              This appointment is completed, but no maintenance invoice was found yet.
+              This appointment is completed, but no maintenance invoice was
+              found yet.
             </div>
           )}
         </div>
 
-        <div className="flex justify-end border-t border-edge bg-white px-6 py-4">
+        <div className="flex justify-end gap-3 border-t border-edge bg-white px-6 py-4 no-print">
+          <button
+            className="rounded-xl border border-edge bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-deep"
+            onClick={() => window.print()}
+            type="button"
+          >
+            <Printer size={16} className="inline-block mr-2" />
+            Print Bill
+          </button>
           <button
             className="rounded-xl border border-edge bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary"
             onClick={onClose}
@@ -809,7 +977,7 @@ const DetailLine = ({
   value: ReactNode;
   wide?: boolean;
 }) => (
-  <div className={wide ? 'md:col-span-2' : undefined}>
+  <div className={wide ? "md:col-span-2" : undefined}>
     <span className="mr-2 font-semibold text-ink-muted">{label}:</span>
     <span className="font-semibold">{value}</span>
   </div>
@@ -832,19 +1000,23 @@ const InvoiceCard = ({
     </div>
 
     <InvoiceSection title="Customer Information">
-      <InvoiceGrid rows={[
-        ['Name', invoice.customerName],
-        ['Phone', invoice.customerPhone],
-        ['Vehicle', invoice.vehicleName],
-        ['Plate', invoice.vehiclePlate],
-      ]} />
+      <InvoiceGrid
+        rows={[
+          ["Name", invoice.customerName],
+          ["Phone", invoice.customerPhone],
+          ["Vehicle", invoice.vehicleName],
+          ["Plate", invoice.vehiclePlate],
+        ]}
+      />
     </InvoiceSection>
 
     <InvoiceSection title="Staff Information">
-      <InvoiceGrid rows={[
-        ['Staff Code', invoice.staffCode],
-        ['Name', invoice.staffName],
-      ]} />
+      <InvoiceGrid
+        rows={[
+          ["Staff Code", invoice.staffCode],
+          ["Name", invoice.staffName],
+        ]}
+      />
     </InvoiceSection>
 
     <div className="rounded-2xl border border-edge p-4">
@@ -852,12 +1024,15 @@ const InvoiceCard = ({
         Services Used
       </p>
       {asNumber(invoice.laborCost) > 0 && (
-        <InvoiceRow label="Rescue labor fee" amount={asNumber(invoice.laborCost)} />
+        <InvoiceRow
+          label="Rescue labor fee"
+          amount={asNumber(invoice.laborCost)}
+        />
       )}
       {invoice.items?.map((line, index) => (
         <InvoiceRow
           key={`${line.name}-${index}`}
-          label={`${line.name || 'Service'} x${asNumber(line.quantity) || 1}`}
+          label={`${line.name || "Service"} x${asNumber(line.quantity) || 1}`}
           amount={asNumber(line.price) * (asNumber(line.quantity) || 1)}
         />
       ))}
@@ -893,12 +1068,16 @@ const InvoiceSection = ({
   </div>
 );
 
-const InvoiceGrid = ({ rows }: { rows: Array<[string, string | undefined]> }) => (
+const InvoiceGrid = ({
+  rows,
+}: {
+  rows: Array<[string, string | undefined]>;
+}) => (
   <div className="grid grid-cols-[6rem_1fr] gap-x-4 gap-y-2 text-sm">
     {rows.map(([label, value]) => (
       <Fragment key={label}>
         <span className="text-ink-muted">{label}</span>
-        <strong className="text-ink">{value || 'N/A'}</strong>
+        <strong className="text-ink">{value || "N/A"}</strong>
       </Fragment>
     ))}
   </div>
@@ -941,12 +1120,12 @@ const CareBikeWordmark = () => (
 );
 
 const asText = (value: unknown) =>
-  typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  typeof value === "string" || typeof value === "number" ? String(value) : "";
 
 const asNumber = (value: unknown) =>
-  typeof value === 'number'
+  typeof value === "number"
     ? value
-    : typeof value === 'string'
+    : typeof value === "string"
       ? Number(value) || 0
       : 0;
 
@@ -967,11 +1146,11 @@ const apiErrorLabel = (error: unknown) => {
     details.response?.data?.error ||
     details.message;
 
-  return [status, message].filter(Boolean).join(' - ') || 'unknown error';
+  return [status, message].filter(Boolean).join(" - ") || "unknown error";
 };
 
 const customerName = (item: RequestRecord) =>
-  asText(item.customer?.fullName) || asText(item.customerName) || 'Anonymous';
+  asText(item.customer?.fullName) || asText(item.customerName) || "Anonymous";
 
 const customerPhone = (item: RequestRecord) =>
   asText(item.appointmentInvoice?.customerPhone) ||
@@ -991,7 +1170,7 @@ const vehicleName = (item: RequestRecord) => {
     asText(vehicle?.vehicleName) || asText(vehicle?.model),
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 };
 
 const vehiclePlate = (item: RequestRecord) =>
@@ -1000,7 +1179,9 @@ const vehiclePlate = (item: RequestRecord) =>
   asText(item.vehicle?.licensePlate);
 
 const requestTime = (item: RequestRecord) =>
-  item.type === 'RESCUE' ? asText(item.createdAt) : asText(item.appointmentDate);
+  item.type === "RESCUE"
+    ? asText(item.createdAt)
+    : asText(item.appointmentDate);
 
 const sortByRequestTimeDesc = (a: RequestRecord, b: RequestRecord) => {
   const aTime = Date.parse(requestTime(a));
@@ -1012,30 +1193,33 @@ const sortByRequestTimeDesc = (a: RequestRecord, b: RequestRecord) => {
 };
 
 const formatDate = (value?: string) => {
-  if (!value) return 'N/A';
+  if (!value) return "N/A";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleString('vi-VN');
+  return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString("vi-VN");
 };
 
 const formatCurrency = (amount = 0) =>
-  `${Math.round(Number(amount || 0)).toLocaleString('vi-VN')} VNĐ`;
+  `${Math.round(Number(amount || 0)).toLocaleString("vi-VN")} VNĐ`;
 
 const parseInvoice = (value?: string) => {
-  if (!value?.trim()?.startsWith('{')) return null;
+  if (!value?.trim()?.startsWith("{")) return null;
   try {
     return JSON.parse(value.trim()) as InvoiceData;
   } catch (error) {
-    console.error('Failed to parse invoice JSON', error);
+    console.error("Failed to parse invoice JSON", error);
     return null;
   }
 };
 
-const enrichAppointmentsWithInvoices = async (appointments: RequestRecord[]) => {
+const enrichAppointmentsWithInvoices = async (
+  appointments: RequestRecord[],
+) => {
   const appointmentsByCustomer = new Map<number, RequestRecord[]>();
 
   appointments.forEach((appointment) => {
-    if (appointment.status !== 'COMPLETED') return;
-    const customerId = asNumber(appointment.customer?.id) || asNumber(appointment.customerId);
+    if (appointment.status !== "COMPLETED") return;
+    const customerId =
+      asNumber(appointment.customer?.id) || asNumber(appointment.customerId);
     if (!customerId) return;
 
     const list = appointmentsByCustomer.get(customerId) || [];
@@ -1047,18 +1231,20 @@ const enrichAppointmentsWithInvoices = async (appointments: RequestRecord[]) => 
 
   const invoiceByAppointmentId = new Map<number, InvoiceData>();
   const results = await Promise.allSettled(
-    Array.from(appointmentsByCustomer.entries()).map(async ([customerId, customerAppointments]) => {
-      const records = await getMaintenanceByCustomer(customerId);
-      customerAppointments.forEach((appointment) => {
-        const invoice = findAppointmentInvoice(appointment, records);
-        if (invoice) invoiceByAppointmentId.set(appointment.id, invoice);
-      });
-    }),
+    Array.from(appointmentsByCustomer.entries()).map(
+      async ([customerId, customerAppointments]) => {
+        const records = await getMaintenanceByCustomer(customerId);
+        customerAppointments.forEach((appointment) => {
+          const invoice = findAppointmentInvoice(appointment, records);
+          if (invoice) invoiceByAppointmentId.set(appointment.id, invoice);
+        });
+      },
+    ),
   );
 
   results.forEach((result) => {
-    if (result.status === 'rejected') {
-      console.error('Failed to enrich appointment invoice data', result.reason);
+    if (result.status === "rejected") {
+      console.error("Failed to enrich appointment invoice data", result.reason);
     }
   });
 
@@ -1079,27 +1265,35 @@ const findAppointmentInvoice = (
   records: MaintenanceHistoryRecord[],
 ) => {
   const appointmentId = asNumber(appointment.id);
-  const branchId = asNumber(appointment.branch?.id) || asNumber(appointment.branchId);
+  const branchId =
+    asNumber(appointment.branch?.id) || asNumber(appointment.branchId);
 
   const candidates = records
     .map((record) => ({
       record,
       invoice: parseInvoice(record.serviceDetails || undefined),
     }))
-    .filter((entry) => entry.invoice?.sourceType === 'APPOINTMENT' || entry.invoice?.appointmentId);
+    .filter(
+      (entry) =>
+        entry.invoice?.sourceType === "APPOINTMENT" ||
+        entry.invoice?.appointmentId,
+    );
 
   const exactMatch = candidates.find(
     ({ invoice }) => asNumber(invoice?.appointmentId) === appointmentId,
   );
   if (exactMatch?.invoice) return exactMatch.invoice;
 
-  const branchMatchedAppointmentInvoices = candidates.filter(({ record, invoice }) => {
-    if (!invoice) return false;
-    if (asNumber(invoice.appointmentId) > 0) return false;
+  const branchMatchedAppointmentInvoices = candidates.filter(
+    ({ record, invoice }) => {
+      if (!invoice) return false;
+      if (asNumber(invoice.appointmentId) > 0) return false;
 
-    const recordBranchId = asNumber(record.branch?.id) || asNumber(record.branchId);
-    return !branchId || !recordBranchId || branchId === recordBranchId;
-  });
+      const recordBranchId =
+        asNumber(record.branch?.id) || asNumber(record.branchId);
+      return !branchId || !recordBranchId || branchId === recordBranchId;
+    },
+  );
   if (branchMatchedAppointmentInvoices.length === 1) {
     return branchMatchedAppointmentInvoices[0].invoice;
   }
@@ -1113,10 +1307,13 @@ const findAppointmentInvoice = (
       if (!invoice) return false;
       if (invoice.sourceType || invoice.appointmentId) return false;
 
-      const recordBranchId = asNumber(record.branch?.id) || asNumber(record.branchId);
-      const branchMatches = !branchId || !recordBranchId || branchId === recordBranchId;
+      const recordBranchId =
+        asNumber(record.branch?.id) || asNumber(record.branchId);
+      const branchMatches =
+        !branchId || !recordBranchId || branchId === recordBranchId;
       const looksLikeMaintenance =
-        asNumber(invoice.distanceKm) === 0 && asNumber(invoice.transportFee) === 0;
+        asNumber(invoice.distanceKm) === 0 &&
+        asNumber(invoice.transportFee) === 0;
 
       return branchMatches && looksLikeMaintenance;
     });
@@ -1132,40 +1329,42 @@ const statusBadge = (status: string) => {
     { label: string; className: string; icon: LucideIcon }
   > = {
     PENDING: {
-      label: 'Pending',
-      className: 'bg-amber-50 text-amber-700',
+      label: "Pending",
+      className: "bg-amber-50 text-amber-700",
       icon: Clock,
     },
     ACCEPTED: {
-      label: 'Processing',
-      className: 'bg-blue-50 text-blue-600',
+      label: "Processing",
+      className: "bg-blue-50 text-blue-600",
       icon: Wrench,
     },
     CONFIRMED: {
-      label: 'Processing',
-      className: 'bg-blue-50 text-blue-600',
+      label: "Processing",
+      className: "bg-blue-50 text-blue-600",
       icon: Wrench,
     },
     COMPLETED: {
-      label: 'Completed',
-      className: 'bg-green-50 text-green-700',
+      label: "Completed",
+      className: "bg-green-50 text-green-700",
       icon: CheckCircle,
     },
     CANCELLED: {
-      label: 'Cancelled',
-      className: 'bg-red-50 text-red-600',
+      label: "Cancelled",
+      className: "bg-red-50 text-red-600",
       icon: XCircle,
     },
   };
   const item = config[status] ?? {
     label: status,
-    className: 'bg-stone-100 text-ink-muted',
+    className: "bg-stone-100 text-ink-muted",
     icon: Clock,
   };
   const Icon = item.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${item.className}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${item.className}`}
+    >
       <Icon size={13} />
       {item.label}
     </span>

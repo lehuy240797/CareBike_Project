@@ -55,6 +55,9 @@ const BranchManagement = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [view, setView] = useState<'grid' | 'table'>('grid');
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // ── Modal state ────────────────────────────────────────────────────────────
   const [branchModal, setBranchModal] = useState<{
     open: boolean;
@@ -153,6 +156,14 @@ const BranchManagement = () => {
     return matchSearch && matchStatus;
   });
 
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, view]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
@@ -246,7 +257,7 @@ const BranchManagement = () => {
             ) : view === 'grid' ? (
               /* GRID VIEW */
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((branch) => {
+                {paginated.map((branch) => {
                   const status = statusOf(branch);
                   return (
                     <div
@@ -335,7 +346,7 @@ const BranchManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="[&>tr:last-child>td]:border-b-0">
-                      {filtered.map((branch) => {
+                      {paginated.map((branch) => {
                         const status = statusOf(branch);
                         return (
                           <tr key={branch.id} className={tableRow}>
@@ -368,6 +379,20 @@ const BranchManagement = () => {
                       })}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {filtered.length > 0 && (
+              <div className="mt-6 border-t border-edge pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <span className="text-sm text-ink-muted">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                </span>
+                <div className="flex gap-2">
+                  <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Prev</button>
+                  <span className="flex items-center px-2 text-sm font-semibold text-ink-muted">Page {currentPage} of {totalPages}</span>
+                  <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Next</button>
                 </div>
               </div>
             )}

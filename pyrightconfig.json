@@ -1,0 +1,7 @@
+{
+    "venvPath": "e:/HK4_Aptech/project/CareBike_Project/python-vision-api",
+    "venv": "venv",
+    "extraPaths": [
+        "python-vision-api/venv/Lib/site-packages"
+    ]
+}

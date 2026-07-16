@@ -11,6 +11,7 @@ import {
   CalendarDays,
   History,
   Wrench,
+  BarChart3,
 } from 'lucide-react';
 
 interface NavItem {
@@ -49,6 +50,12 @@ const NAV_ITEMS: NavItem[] = [
     to: '/branch-staff',
     icon: <Users size={20} aria-hidden="true" />,
     label: 'Mechanics',
+    roles: ['BRANCH'],
+  },
+  {
+    to: '/staff-kpi',
+    icon: <BarChart3 size={20} aria-hidden="true" />,
+    label: 'Mechanic KPI',
     roles: ['BRANCH'],
   },
   {

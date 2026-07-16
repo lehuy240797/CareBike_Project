@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from ultralytics import YOLO
+from fastapi import FastAPI, UploadFile, File # pyrefly: ignore [missing-import]
+from fastapi.middleware.cors import CORSMiddleware # pyrefly: ignore [missing-import]
+from ultralytics import YOLO # pyrefly: ignore [missing-import]
 from PIL import Image
 import io
 

@@ -79,6 +79,12 @@ const CustomerManagement = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [view, setView] = useState<'grid' | 'table'>('grid');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
 
   // ── Load customers + loyalty profiles in parallel ─────────────────────────
   const fetchAll = useCallback(async () => {
@@ -151,6 +157,9 @@ const CustomerManagement = () => {
       (statusFilter === 'locked' && !isActive);
     return matchSearch && matchStatus;
   });
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -239,8 +248,9 @@ const CustomerManagement = () => {
               </div>
             ) : view === 'grid' ? (
               /* GRID VIEW */
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((customer) => {
+              <>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {paginated.map((customer) => {
                   const isActive = customer.isActive !== false;
                   const isToggling = togglingId === customer.id;
                   const profile = profiles.get(customer.id);
@@ -332,7 +342,19 @@ const CustomerManagement = () => {
                     </div>
                   );
                 })}
-              </div>
+                </div>
+                {/* Pagination Controls */}
+                <div className="mt-6 flex items-center justify-between">
+                  <span className="text-sm text-ink-muted">
+                    Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                  </span>
+                  <div className="flex gap-2">
+                    <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Prev</button>
+                    <span className="flex items-center px-2 text-sm font-semibold text-ink-muted">Page {currentPage} of {totalPages}</span>
+                    <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Next</button>
+                  </div>
+                </div>
+              </>
             ) : (
               /* TABLE VIEW */
               <div className={tableCard}>
@@ -351,7 +373,7 @@ const CustomerManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="[&>tr:last-child>td]:border-b-0">
-                      {filtered.map((customer) => {
+                      {paginated.map((customer) => {
                         const isActive = customer.isActive !== false;
                         const isToggling = togglingId === customer.id;
                         const profile = profiles.get(customer.id);
@@ -415,6 +437,19 @@ const CustomerManagement = () => {
                       })}
                     </tbody>
                   </table>
+                </div>
+                {/* Pagination Controls */}
+                <div className="border-t border-edge p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-ink-muted">
+                      Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                    </span>
+                    <div className="flex gap-2">
+                      <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Prev</button>
+                      <span className="flex items-center px-2 text-sm font-semibold text-ink-muted">Page {currentPage} of {totalPages}</span>
+                      <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Next</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

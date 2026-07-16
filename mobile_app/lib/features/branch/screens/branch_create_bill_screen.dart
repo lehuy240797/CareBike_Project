@@ -38,6 +38,9 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
   int _selectedCategoryIndex = 0;
   List<String> _categories = ['All'];
   Map<String, dynamic>? _staffInfo;
+  Map<String, dynamic>? _assignedStaffInfo;
+  bool _isLoadingAssignedStaff = true;
+  String? _assignedStaffError;
   List<dynamic> _spareParts = [];
 
   final double _laborCost = 100000;
@@ -94,6 +97,42 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
     super.initState();
     _loadCategories();
     _loadSpareParts();
+    _loadAssignedStaff();
+  }
+
+  Future<void> _loadAssignedStaff() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingAssignedStaff = true;
+        _assignedStaffError = null;
+      });
+    }
+
+    try {
+      final response = await ApiClient.get(
+        '/rescues/${widget.rescueId}/assigned-staff',
+      );
+      final parsed = ApiClient.parseResponse(response);
+      final data = Map<String, dynamic>.from(parsed as Map);
+      final code = data['staffCode']?.toString().trim().toUpperCase() ?? '';
+      if (code.isEmpty) {
+        throw StateError(
+          'No staff member has been assigned to this rescue request.',
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _assignedStaffInfo = data;
+        _isLoadingAssignedStaff = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _assignedStaffInfo = null;
+        _assignedStaffError = e.toString().replaceAll('Exception: ', '');
+        _isLoadingAssignedStaff = false;
+      });
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -180,8 +219,11 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
       final category = _categories[_selectedCategoryIndex];
       List<dynamic> filteredData = data;
       if (category != 'All') {
-        filteredData =
-            data.where((part) => (part['category'] ?? part['categoryName']) == category).toList();
+        filteredData = data
+            .where(
+              (part) => (part['category'] ?? part['categoryName']) == category,
+            )
+            .toList();
       }
 
       if (!mounted) return;
@@ -313,19 +355,55 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
       return;
     }
 
+    if (_isLoadingAssignedStaff) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please wait while the assigned staff member is loaded.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final assignedCode =
+        _assignedStaffInfo?['staffCode']?.toString().trim().toUpperCase() ?? '';
+    if (assignedCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _assignedStaffError ??
+                'The assigned staff member could not be loaded. Please try again.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    if (code != assignedCode) {
+      setState(() {
+        _staffVerified = false;
+        _staffInfo = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'This staff code does not match the staff member assigned to this rescue request.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     try {
-      final response = await ApiClient.get('/staff/verify-shift?code=$code');
-      if (response.statusCode != 200) {
-        try {
-          final errorData = jsonDecode(utf8.decode(response.bodyBytes));
-          if (errorData['message'] != null) {
-            throw Exception(errorData['message']);
-          }
-        } catch (_) {}
-        throw Exception('Staff with this code was not found or not on shift.');
-      }
-      final data =
-          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final encodedCode = Uri.encodeQueryComponent(code);
+      final response = await ApiClient.get(
+        '/rescues/${widget.rescueId}/verify-staff?code=$encodedCode',
+      );
+      final parsed = ApiClient.parseResponse(response);
+      final data = Map<String, dynamic>.from(parsed as Map);
       if (!mounted) return;
       setState(() {
         _staffVerified = true;
@@ -339,6 +417,10 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      setState(() {
+        _staffVerified = false;
+        _staffInfo = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${e.toString().replaceAll('Exception: ', '')}'),
@@ -432,6 +514,27 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
             const SizedBox(height: 24),
             _sectionTitle('STEP 2: Verify staff', Icons.badge_rounded),
             const SizedBox(height: 10),
+            if (_isLoadingAssignedStaff)
+              const LinearProgressIndicator()
+            else if (_assignedStaffError != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _assignedStaffError!,
+                      style: TextStyle(color: AppColors.danger),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _loadAssignedStaff,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              )
+            else
+              _notice('Assigned staff: ${_assignedStaffInfo?['fullName']}'),
+            const SizedBox(height: 10),
             _staffVerified
                 ? _verifiedTile(
                     icon: Icons.verified_user_rounded,
@@ -444,7 +547,10 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                       Expanded(
                         child: TextField(
                           controller: _staffCodeCtrl,
-                          enabled: _qrVerified,
+                          enabled:
+                              _qrVerified &&
+                              !_isLoadingAssignedStaff &&
+                              _assignedStaffInfo != null,
                           textCapitalization: TextCapitalization.characters,
                           decoration: const InputDecoration(
                             hintText: 'CBS-0001',
@@ -454,7 +560,12 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
-                        onPressed: _qrVerified ? _verifyStaffCode : null,
+                        onPressed:
+                            _qrVerified &&
+                                !_isLoadingAssignedStaff &&
+                                _assignedStaffInfo != null
+                            ? _verifyStaffCode
+                            : null,
                         child: const Text('Confirm'),
                       ),
                     ],
@@ -499,30 +610,26 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                         margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color:
-                              isSelected
-                                  ? AppColors.primary
-                                  : AppColors.surface,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.surface,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color:
-                                isSelected
-                                    ? AppColors.primary
-                                    : AppColors.edge,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.edge,
                           ),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           _categories[i],
                           style: TextStyle(
-                            color:
-                                isSelected
-                                    ? Colors.white
-                                    : AppColors.inkMuted,
-                            fontWeight:
-                                isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.inkMuted,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
                           ),
                         ),
                       ),
@@ -551,39 +658,36 @@ class _BranchCreateBillScreenState extends State<BranchCreateBillScreen> {
                             child: ListTile(
                               leading:
                                   part['imageUrl'] != null &&
-                                          part['imageUrl'].toString().isNotEmpty
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
-                                            part['imageUrl'],
-                                            width: 50,
-                                            height: 50,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (ctx, _, __) => Icon(
-                                                  part['isService'] == true
-                                                      ? Icons.handyman_rounded
-                                                      : Icons.settings_rounded,
-                                                  color: AppColors.primary,
-                                                ),
-                                          ),
-                                        )
-                                      : Container(
-                                          width: 50,
-                                          height: 50,
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primaryLight,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            part['isService'] == true
-                                                ? Icons.handyman_rounded
-                                                : Icons.settings_rounded,
-                                            color: AppColors.primary,
-                                          ),
+                                      part['imageUrl'].toString().isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        part['imageUrl'],
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (ctx, _, __) => Icon(
+                                          part['isService'] == true
+                                              ? Icons.handyman_rounded
+                                              : Icons.settings_rounded,
+                                          color: AppColors.primary,
                                         ),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryLight,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        part['isService'] == true
+                                            ? Icons.handyman_rounded
+                                            : Icons.settings_rounded,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
                               title: Text(
                                 part['name'],
                                 maxLines: 1,

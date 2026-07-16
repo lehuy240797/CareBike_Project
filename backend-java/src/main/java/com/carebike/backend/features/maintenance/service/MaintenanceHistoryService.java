@@ -102,6 +102,10 @@ public class MaintenanceHistoryService {
                     if (shiftsToday == null || shiftsToday.isEmpty()) {
                         throw new RuntimeException("Lỗi: Nhân viên " + staff.getFullName() + " không có lịch làm việc trong ngày hôm nay.");
                     }
+                    
+                    // Cập nhật trạng thái thành FREE
+                    staff.setStatus(com.carebike.backend.features.staff.entity.StaffStatus.FREE);
+                    staffRepository.save(staff);
                 }
             } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
                 // Ignore parsing errors here, handled later or not critical for validation

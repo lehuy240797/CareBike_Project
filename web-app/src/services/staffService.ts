@@ -5,6 +5,7 @@ export interface StaffRecord {
   staffCode: string;
   fullName: string;
   phone: string;
+  status?: string;
 }
 
 export interface ShiftRecord {
@@ -41,4 +42,8 @@ export const apiUpdateStaff = async (staffId: number, data: Partial<StaffRecord>
 
 export const apiDeleteStaff = async (staffId: number): Promise<void> => {
   await apiClient.delete(`/staff/${staffId}`);
+};
+
+export const apiUpdateStaffStatus = async (staffId: number, status: string): Promise<void> => {
+  await apiClient.put(`/staff/${staffId}/status`, { status });
 };

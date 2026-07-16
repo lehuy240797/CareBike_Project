@@ -70,6 +70,10 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
+  static const int _openingHour = 8;
+  static const int _closingHour = 20;
+  static const String _workingHoursMessage =
+      'Appointments are available from 8:00 AM to 8:00 PM.';
   List<Branch> _branches = [];
   bool _branchesLoading = true;
 
@@ -103,7 +107,7 @@ class _HomeTabState extends State<HomeTab> {
   void initState() {
     super.initState();
     _loadBranches();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVehicles();
     });
@@ -132,7 +136,7 @@ class _HomeTabState extends State<HomeTab> {
       setState(() => _vehiclesLoading = false);
       return;
     }
-    
+
     setState(() => _vehiclesLoading = true);
     try {
       final response = await ApiClient.get('/vehicles/owner/$userId');
@@ -350,7 +354,47 @@ class _HomeTabState extends State<HomeTab> {
       ),
     );
 
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked == null) return;
+    if (!_isWithinWorkingHours(picked)) {
+      setState(() => _selectedTime = null);
+      await _showOutsideWorkingHoursDialog();
+      return;
+    }
+    setState(() => _selectedTime = picked);
+  }
+
+  bool _isWithinWorkingHours(TimeOfDay time) {
+    final minutes = time.hour * 60 + time.minute;
+    return minutes >= _openingHour * 60 && minutes <= _closingHour * 60;
+  }
+
+  Future<void> _showOutsideWorkingHoursDialog() async {
+    final openRescue = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(Icons.emergency_rounded, color: AppColors.danger, size: 34),
+        title: const Text('Outside working hours'),
+        content: const Text(
+          'Appointments are available from 8:00 AM to 8:00 PM. '
+          'If your motorcycle needs urgent assistance, our 24/7 Rescue service can help.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Choose another time'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.sos_rounded),
+            label: const Text('Open Rescue'),
+          ),
+        ],
+      ),
+    );
+
+    if (openRescue == true && mounted) {
+      RescueBottomSheet.show(context);
+    }
   }
 
   Future<void> _submitBooking() async {
@@ -364,6 +408,11 @@ class _HomeTabState extends State<HomeTab> {
     }
     if (_selectedDate == null || _selectedTime == null) {
       setState(() => _bookingError = 'Please select a date and time.');
+      return;
+    }
+    if (!_isWithinWorkingHours(_selectedTime!)) {
+      setState(() => _bookingError = _workingHoursMessage);
+      await _showOutsideWorkingHoursDialog();
       return;
     }
 
@@ -390,9 +439,15 @@ class _HomeTabState extends State<HomeTab> {
         'appointmentDate': dt.toIso8601String(),
         'note': _noteCtrl.text.trim(),
       });
-      ApiClient.parseResponse(response);
+      final data = ApiClient.parseResponse(response);
+      bool allStaffBusy = false;
+      if (data != null && data['allStaffBusy'] == true) {
+        allStaffBusy = true;
+      }
       setState(() {
-        _bookingSuccess = 'Booked successfully! The branch will confirm soon.';
+        _bookingSuccess = allStaffBusy
+            ? 'Tất cả nhân viên đang bận, vui lòng chờ. Đơn của bạn đã được lưu tại chi nhánh.'
+            : 'Booked successfully! The branch will confirm soon.';
         _isBooking = false;
         _selectedBranch = null;
         _selectedDate = null;
@@ -441,10 +496,7 @@ class _HomeTabState extends State<HomeTab> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
-          await Future.wait([
-            _loadBranches(),
-            _loadVehicles(),
-          ]);
+          await Future.wait([_loadBranches(), _loadVehicles()]);
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -990,7 +1042,11 @@ class _HomeTabState extends State<HomeTab> {
             _fieldShell(
               child: Row(
                 children: [
-                  Icon(Icons.directions_bike_rounded, size: 19, color: AppColors.danger),
+                  Icon(
+                    Icons.directions_bike_rounded,
+                    size: 19,
+                    color: AppColors.danger,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'No vehicles found. Please add a vehicle first.',
@@ -1003,7 +1059,11 @@ class _HomeTabState extends State<HomeTab> {
             _fieldShell(
               child: Row(
                 children: [
-                  Icon(Icons.directions_bike_rounded, size: 19, color: AppColors.primary),
+                  Icon(
+                    Icons.directions_bike_rounded,
+                    size: 19,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonHideUnderline(
@@ -1039,7 +1099,8 @@ class _HomeTabState extends State<HomeTab> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => setState(() => _selectedVehicleId = v),
+                        onChanged: (v) =>
+                            setState(() => _selectedVehicleId = v),
                       ),
                     ),
                   ),

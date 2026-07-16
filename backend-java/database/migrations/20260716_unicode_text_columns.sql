@@ -1,0 +1,74 @@
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'branches'
+          AND COLUMN_NAME = 'name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.branches ALTER COLUMN name NVARCHAR(255) NOT NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'branches'
+          AND COLUMN_NAME = 'address' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.branches ALTER COLUMN address NVARCHAR(255) NOT NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'staffs'
+          AND COLUMN_NAME = 'full_name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.staffs ALTER COLUMN full_name NVARCHAR(255) NOT NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'users'
+          AND COLUMN_NAME = 'full_name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.users ALTER COLUMN full_name NVARCHAR(255) NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'walk_in_repairs'
+          AND COLUMN_NAME = 'customer_name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.walk_in_repairs ALTER COLUMN customer_name NVARCHAR(255) NOT NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'walk_in_repairs'
+          AND COLUMN_NAME = 'vehicle_name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.walk_in_repairs ALTER COLUMN vehicle_name NVARCHAR(255) NOT NULL;
+
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'walk_in_repairs'
+          AND COLUMN_NAME = 'staff_name' AND DATA_TYPE <> 'nvarchar'
+    ) ALTER TABLE dbo.walk_in_repairs ALTER COLUMN staff_name NVARCHAR(255) NULL;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+
+SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'dbo'
+  AND (
+    (TABLE_NAME = 'branches' AND COLUMN_NAME IN ('name', 'address'))
+    OR (TABLE_NAME = 'staffs' AND COLUMN_NAME = 'full_name')
+    OR (TABLE_NAME = 'users' AND COLUMN_NAME = 'full_name')
+    OR (TABLE_NAME = 'walk_in_repairs'
+        AND COLUMN_NAME IN ('customer_name', 'vehicle_name', 'staff_name'))
+  )
+ORDER BY TABLE_NAME, ORDINAL_POSITION;
+

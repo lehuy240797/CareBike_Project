@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useWebSocketEvent } from '../context/WebSocketContext';
 import { Plus, Trash2, Package, Search, LayoutGrid, List, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SparePartModal from '../components/modals/SparePartModal';
@@ -50,13 +51,9 @@ const SparePartManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    fetchSpareParts();
-  }, []);
-
-  const fetchSpareParts = async () => {
+  const fetchSpareParts = useCallback(async (background = false) => {
     try {
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
       const response = await apiClient.get('/spare-parts');
       if (response.status === 200) {
         setSpareParts(response.data);
@@ -69,7 +66,13 @@ const SparePartManagement: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useWebSocketEvent('SPARE_PART_UPDATED', () => { void fetchSpareParts(true); });
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchSpareParts());
+  }, [fetchSpareParts]);
 
   const handleOpenModal = (part?: SparePart) => {
     setSelectedPart(part || null);
@@ -332,3 +335,4 @@ const SparePartManagement: React.FC = () => {
 };
 
 export default SparePartManagement;
+

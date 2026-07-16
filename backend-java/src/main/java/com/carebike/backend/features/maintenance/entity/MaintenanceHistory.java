@@ -26,7 +26,7 @@ public class MaintenanceHistory {
     private Integer currentKm;
 
     /** Chi tiết dịch vụ — comma-separated or free text */
-    @Column(name = "service_details", columnDefinition = "TEXT")
+    @Column(name = "service_details", columnDefinition = "NVARCHAR(MAX)")
     private String serviceDetails;
 
     /** Tổng số tiền */

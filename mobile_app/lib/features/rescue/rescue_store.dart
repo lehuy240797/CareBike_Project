@@ -37,13 +37,25 @@ class RescueStore extends ChangeNotifier {
   void _onRescue(Map<String, dynamic> r) {
     final id = r['id'];
     final alreadyKnown =
-        pending.any((e) => e['id'] == id) || accepted.any((e) => e['id'] == id);
-    if (!alreadyKnown) {
+        pending.any((e) => e['id'] == id) ||
+        accepted.any((e) => e['id'] == id) ||
+        completed.any((e) => e['id'] == id);
+    final status = (r['status'] ?? 'PENDING').toString().toUpperCase();
+
+    pending.removeWhere((e) => e['id'] == id);
+    accepted.removeWhere((e) => e['id'] == id);
+    completed.removeWhere((e) => e['id'] == id);
+
+    if (status == 'COMPLETED') {
+      completed.insert(0, r);
+    } else if (status == 'ACCEPTED') {
+      accepted.insert(0, r);
+    } else {
       pending.insert(0, r);
-      notifyListeners();
     }
-    // Only alarm for cases that still need a response.
-    if ((r['status'] ?? 'PENDING') == 'PENDING') {
+    notifyListeners();
+
+    if (!alreadyKnown && (status == 'PENDING' || status == 'ACCEPTED')) {
       _newSos.add(r);
     }
   }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useWebSocketEvent } from '../context/WebSocketContext';
 import { Layers, Plus, Trash2 } from 'lucide-react';
 import { getCategories, deleteCategory } from '../services/categoryService';
 import type { CategoryRecord } from '../services/categoryService';
@@ -25,9 +26,9 @@ const CategoryManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (background = false) => {
     try {
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
       const data = await getCategories();
       setCategories(data);
     } catch {
@@ -36,6 +37,8 @@ const CategoryManagement = () => {
       setIsLoading(false);
     }
   }, []);
+
+  useWebSocketEvent('SPARE_PART_UPDATED', () => fetchCategories(true));
 
   useEffect(() => {
     fetchCategories();
@@ -128,3 +131,4 @@ const CategoryManagement = () => {
 };
 
 export default CategoryManagement;
+

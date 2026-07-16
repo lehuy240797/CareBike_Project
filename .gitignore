@@ -11,3 +11,4 @@ node_modules/
 .dart_localappdata/
 __pycache__/
 *.pyc
+python-vision-api/venv/

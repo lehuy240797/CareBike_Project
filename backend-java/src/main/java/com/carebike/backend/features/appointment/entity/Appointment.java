@@ -30,14 +30,19 @@ public class Appointment {
     @JoinColumn(name = "vehicle_id")
     @com.fasterxml.jackson.annotation.JsonIgnore
     private com.carebike.backend.features.vehicle.entity.Vehicle vehicle;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "assigned_staff_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private com.carebike.backend.features.staff.entity.Staff assignedStaff;
+
 
     @Column(name = "appointment_date", nullable = false)
     private LocalDateTime appointmentDate;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String note;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String invoiceDetails;
 
     @Column(name = "total_cost", precision = 12, scale = 2)
@@ -107,5 +112,20 @@ public class Appointment {
     @com.fasterxml.jackson.annotation.JsonProperty("engineCapacity")
     public Integer getEngineCapacity() {
         return vehicle != null ? vehicle.getEngineCapacity() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("assignedStaffId")
+    public Integer getAssignedStaffId() {
+        return assignedStaff != null ? assignedStaff.getId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("assignedStaffCode")
+    public String getAssignedStaffCode() {
+        return assignedStaff != null ? assignedStaff.getStaffCode() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("assignedStaffName")
+    public String getAssignedStaffName() {
+        return assignedStaff != null ? assignedStaff.getFullName() : null;
     }
 }

@@ -9,6 +9,7 @@ public record SparePartResponse(
         String description,
         String imageUrl,
         Integer categoryId,
-        String categoryName
+        String categoryName,
+        Boolean isActive
 ) {
 }

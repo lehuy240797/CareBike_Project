@@ -96,7 +96,7 @@ public class GeminiApiService {
 
         // Truy xuất danh sách lịch hẹn đã hoàn thành, sắp xếp theo thời gian giảm dần
         List<Appointment> completedAppointments = appointmentRepository
-                .findByCustomer_IdOrderByAppointmentDateDesc(customerId)
+                .findByCustomer_IdOrderByIdDesc(customerId)
                 .stream()
                 .filter(a -> "COMPLETED".equalsIgnoreCase(a.getStatus()))
                 .limit(3)

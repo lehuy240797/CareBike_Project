@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { apiGetStaffByBranch, apiGetShiftsByBranch, apiUpdateShifts } from '../services/staffService';
 import type { StaffRecord, ShiftRecord } from '../services/staffService';
 import { useAuth } from '../context/AuthContext';
+import { useWebSocketEvent } from '../context/WebSocketContext';
 import {
   btnOutline,
   btnPrimary,
@@ -59,6 +60,29 @@ const BranchShiftManagement = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Active shift logic
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000); // update every minute
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHour = now.getHours();
+  const activeDate = new Date(now);
+  let activeShiftValue = '';
+
+  if (currentHour >= 6 && currentHour < 14) {
+    activeShiftValue = 'MORNING';
+  } else if (currentHour >= 14 && currentHour < 22) {
+    activeShiftValue = 'AFTERNOON';
+  } else {
+    activeShiftValue = 'NIGHT';
+    if (currentHour < 6) {
+      activeDate.setDate(activeDate.getDate() - 1);
+    }
+  }
+  const activeDateStr = formatDate(activeDate);
+
   const currentDays = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(currentWeekStart);
@@ -76,9 +100,13 @@ const BranchShiftManagement = () => {
     return end;
   }, [currentWeekStart]);
 
-  const fetchData = useCallback(async () => {
-    if (!branchId) return;
-    setIsLoading(true);
+  const fetchData = useCallback(async (background = false) => {
+    if (!branchId) {
+      if (!background) setIsLoading(false);
+      return;
+    }
+    if (!background) setIsLoading(true);
+
     try {
       const startDate = formatDate(currentWeekStart);
       const endDate = formatDate(weekEnd);
@@ -108,13 +136,17 @@ const BranchShiftManagement = () => {
       console.error('Error loading shift data', error);
       toast.error('Unable to load shift data.');
     } finally {
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
     }
   }, [branchId, currentDays, currentWeekStart, weekEnd]);
 
   useEffect(() => {
-    void Promise.resolve().then(fetchData);
+    void Promise.resolve().then(() => fetchData());
   }, [fetchData]);
+
+  // Auto-refresh when staff status changes via WebSocket
+  useWebSocketEvent('STAFF_UPDATED', () => fetchData(true));
+  useWebSocketEvent('SHIFT_UPDATED', () => fetchData(true));
 
   const handleToggleStaff = (day: string, shift: string, staffId: number) => {
     setSchedule((prev) => {
@@ -311,9 +343,20 @@ const BranchShiftManagement = () => {
                     
                     // Checkerboard pattern for assignment cells
                     const isOrange = (rowIndex + colIndex) % 2 === 0;
+                    const isCurrentActiveShift = day.dateStr === activeDateStr && shift.value === activeShiftValue;
+
+                    let cellBg = isOrange ? 'bg-orange-50/50' : 'bg-white';
+                    if (isCurrentActiveShift) {
+                      cellBg = 'bg-yellow-200 shadow-[inset_0_0_0_3px_#eab308] relative z-10';
+                    }
 
                     return (
-                      <td key={shift.value} className={`${tdCell} !border-black align-top ${isOrange ? 'bg-orange-50/50' : 'bg-white'}`}>
+                      <td key={shift.value} className={`${tdCell} !border-black align-top ${cellBg}`}>
+                        {isCurrentActiveShift && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-yellow-500 px-2 py-0.5 text-[0.65rem] font-black uppercase text-white shadow-sm">
+                            Active Now
+                          </div>
+                        )}
                         <div className="flex flex-col gap-3">
                           <div className="flex items-center justify-between gap-2 text-[0.82rem] font-bold">
                             <span className={isFull ? 'text-primary' : 'text-ink-muted'}>
@@ -341,6 +384,12 @@ const BranchShiftManagement = () => {
                                     />
                                     <span className="text-sm">
                                       <strong>{staff.staffCode}</strong> - {staff.fullName}
+                                      <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                        staff.status === 'BUSY' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+                                      }`}>
+                                        <span className={`h-1 w-1 rounded-full ${staff.status === 'BUSY' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                                        {staff.status === 'BUSY' ? 'Busy' : 'Free'}
+                                      </span>
                                     </span>
                                   </label>
                                 );
@@ -351,8 +400,14 @@ const BranchShiftManagement = () => {
                               </span>
                             ) : (
                               selectedStaff.map((staff) => (
-                                <span key={staff.id} className="rounded-full bg-primary-light px-3 py-1 text-sm font-bold text-primary-deep">
+                                <span key={staff.id} className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-sm font-bold text-primary-deep">
                                   {staff.staffCode} - {staff.fullName}
+                                  <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                    staff.status === 'BUSY' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    <span className={`h-1 w-1 rounded-full ${staff.status === 'BUSY' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                                    {staff.status === 'BUSY' ? 'Busy' : 'Free'}
+                                  </span>
                                 </span>
                               ))
                             )}
@@ -408,3 +463,4 @@ const SummaryCard = ({
 };
 
 export default BranchShiftManagement;
+

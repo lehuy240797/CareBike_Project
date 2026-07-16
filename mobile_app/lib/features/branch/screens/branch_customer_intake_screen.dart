@@ -537,6 +537,17 @@ class _BranchMaintenanceBillScreenState
       }
       final data =
           jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      
+      // Immediately set staff status to BUSY
+      final staffId = data['id'];
+      if (staffId != null) {
+        try {
+          await ApiClient.put('/staff/$staffId/status', {'status': 'BUSY'});
+        } catch (e) {
+          debugPrint('Could not update staff status: $e');
+        }
+      }
+      
       if (!mounted) return;
       setState(() {
         _staffVerified = true;

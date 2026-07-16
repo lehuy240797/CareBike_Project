@@ -35,4 +35,8 @@ public class SparePart {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private com.carebike.backend.features.category.entity.Category category;
+
+    @Column(name = "is_active")
+    @Builder.Default
+    private Boolean isActive = true;
 }

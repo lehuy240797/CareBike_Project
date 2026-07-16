@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { Client } from '@stomp/stompjs'; 
 import toast from 'react-hot-toast'; 
 
+import { useWebSocketEvent } from '../context/WebSocketContext';
 
 
 // Interfaces unchanged
 interface Vehicle { brand: string; model: string; licensePlate: string; }
 interface Customer { fullName: string; phone: string; }
-interface Rescue { id: number; customer: Customer; vehicle: Vehicle; latitude: number; longitude: number; issueDescription: string; status: string; createdAt: string; }
+interface Rescue { id: number; customer: Customer; vehicle: Vehicle; latitude: number; longitude: number; issueDescription: string; status: string; staffCode?: string; assignedStaffName?: string; createdAt: string; }
 
 // NOTE: component now receives props
 interface RescueDashboardProps {
@@ -20,27 +21,29 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     // 1. Function to load the existing list from the API
-    const fetchRescues = async () => {
+    const fetchRescues = useCallback(async () => {
         if (!branchId) return;
         setIsLoading(true);
         try {
             const response = await fetch(`http://localhost:8080/api/rescues/branch/${branchId}`);
             if (response.ok) {
                 const data = await response.json();
-                setRescues(data.filter((r: Rescue) => r.status === 'PENDING'));
+                setRescues(data.filter((r: Rescue) => !['COMPLETED', 'CANCELLED'].includes(r.status)));
             }
         } catch (error) {
             console.error('Failed to load the rescue list:', error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [branchId]);
+
+    useWebSocketEvent('RESCUE_UPDATED', fetchRescues);
 
     // 2. CONNECT WEBSOCKET TO LISTEN FOR NEW RESCUE CASES
     useEffect(() => {
         if (!branchId) return;
 
-        fetchRescues(); // Initial data load
+        void Promise.resolve().then(fetchRescues); // Initial data load
 
         const stompClient = new Client({
             brokerURL: 'ws://localhost:8080/ws',
@@ -56,7 +59,7 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
                     const newRescue = JSON.parse(message.body);
 
                     // Push the new rescue case to the top of the on-screen list
-                    setRescues(prev => [newRescue, ...prev]);
+                    setRescues(prev => [newRescue, ...prev.filter(r => r.id !== newRescue.id)]);
 
                     // Emergency alert via the toast notification system
                     toast.error(`🚨 ALERT: A customer just requested emergency roadside assistance!`, { duration: 5000 });
@@ -69,7 +72,7 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
         return () => {
             stompClient.deactivate();
         };
-    }, [branchId]); // Re-run when branchId changes
+    }, [branchId, fetchRescues]); // Re-run when branchId changes
 
     /**
      * Handle confirming acceptance of a rescue case.
@@ -89,9 +92,9 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
                         <AlertTriangle className="animate-pulse" size={24} />
                         EMERGENCY RESCUE DISPATCH
                     </h2>
-                    <p className="text-red-500 text-sm mt-1">Requests waiting to dispatch</p>
+                    <p className="text-red-500 text-sm mt-1">Active rescue requests and assignments</p>
                 </div>
-                <button onClick={fetchRescues} className="bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 flex items-center gap-2 text-sm shadow-sm transition">
+                <button onClick={() => { void fetchRescues(); }} className="bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 flex items-center gap-2 text-sm shadow-sm transition">
                     <Clock size={14} /> Refresh
                 </button>
             </div>
@@ -111,6 +114,8 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
 
                             <div className="text-sm text-gray-600 space-y-1 mb-3">
                                 <p><span className="font-semibold text-gray-800">Customer:</span> {rescue.customer?.fullName}</p>
+                                {rescue.staffCode && <p><span className="font-semibold text-gray-800">Assigned staff:</span> {rescue.assignedStaffName ? `${rescue.assignedStaffName} (${rescue.staffCode})` : rescue.staffCode}</p>}
+                                <p><span className="font-semibold text-gray-800">Status:</span> {rescue.status}</p>
                                 <p className="text-red-600 bg-red-50 p-1.5 rounded border border-red-100">⚠️ {rescue.issueDescription}</p>
                                 <div className="bg-gray-100 p-2 rounded mt-2">
                                     <p className="font-medium text-gray-800">🚙 {rescue.vehicle?.brand} {rescue.vehicle?.model}</p>
@@ -122,7 +127,9 @@ const RescueDashboard: React.FC<RescueDashboardProps> = ({ branchId }) => {
                                 <a href={`tel:${rescue.customer?.phone}`} className="flex-1 bg-green-500 text-white text-center py-2 rounded text-sm font-semibold hover:bg-green-600">📞 Call</a>
                                 <a href={`https://www.google.com/maps/dir/?api=1&...${rescue.latitude},${rescue.longitude}`} target="_blank" rel="noreferrer" className="flex-1 bg-blue-500 text-white text-center py-2 rounded text-sm font-semibold hover:bg-blue-600">🗺️ Directions</a>
                             </div>
+                            {rescue.status === 'PENDING' && (
                             <button onClick={() => handleAcceptRescue(rescue.id)} className="w-full mt-2 bg-red-600 text-white py-2 rounded text-sm font-bold uppercase hover:bg-red-700">✅ Accept</button>
+                            )}
                         </div>
                     ))}
                 </div>

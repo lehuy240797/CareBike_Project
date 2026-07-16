@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Client } from '@stomp/stompjs';
+
 import {
   Building2,
   Users,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
   Wrench,
-  UserCog
+  UserCog,
+  LayoutList
 } from 'lucide-react';
 import { btnPrimary, dashTitle, eyebrow, pageSubtitle } from '../ui/styles';
+import apiClient from '../services/apiClient';
 
 const statCard =
   'group rounded-3xl border border-edge bg-white p-6 opacity-0 animate-fade-up transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-[0_0_25px_rgba(249,115,22,0.35)]';
@@ -21,18 +20,18 @@ const panel =
 
 // Small note shown under each stat card
 const STAT_NOTE: Record<string, string> = {
-  today: 'live update',
-  processing: 'system-wide',
-  completed: 'this month',
-  revenue: 'last 6 months',
+  branches: 'active facilities',
+  customers: 'registered users',
+  categories: 'service types',
+  spareParts: 'inventory items',
 };
 
 // Default values for the stats
 const INITIAL_STATS = [
-  { id: 'today', label: "Today's services", value: 24, icon: <Wrench size={20} />, color: 'var(--color-primary)' },
-  { id: 'processing', label: 'In progress', value: 15, icon: <Clock size={20} />, color: '#f59e0b' },
-  { id: 'completed', label: 'Completed', value: 82, icon: <CheckCircle2 size={20} />, color: '#10b981' },
-  { id: 'revenue', label: 'Monthly revenue (M₫)', value: 4.5, icon: <TrendingUp size={20} />, color: '#8b5cf6' },
+  { id: 'branches', label: 'Total Branches', value: 0, icon: <Building2 size={20} />, color: 'var(--color-primary)' },
+  { id: 'customers', label: 'Total Customers', value: 0, icon: <Users size={20} />, color: '#f59e0b' },
+  { id: 'categories', label: 'Total Categories', value: 0, icon: <LayoutList size={20} />, color: '#10b981' },
+  { id: 'spareParts', label: 'Total Spare Parts', value: 0, icon: <Wrench size={20} />, color: '#8b5cf6' },
 ];
 
 const AdminDashboard: React.FC = () => {
@@ -40,33 +39,25 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState(INITIAL_STATS);
 
   useEffect(() => {
-    const stompClient = new Client({
-      brokerURL: 'ws://localhost:8080/ws',
-      reconnectDelay: 5000,
-      debug: (str) => console.log('STOMP (Admin):', str),
-    });
-
-    stompClient.onConnect = () => {
-      console.log('Đã kết nối WebSocket thành công cho Admin!');
-      stompClient.subscribe('/topic/admin/stats', (message) => {
-        if (message.body) {
-          setStats((prevStats) =>
-            prevStats.map(stat =>
-              stat.id === 'today' ? { ...stat, value: stat.value + 1 } : stat
-            )
-          );
-        }
-      });
+    const fetchStats = async () => {
+      try {
+        const response = await apiClient.get('/admin/stats');
+        setStats([
+          { id: 'branches', label: 'Total Branches', value: response.data.branches || 0, icon: <Building2 size={20} />, color: 'var(--color-primary)' },
+          { id: 'customers', label: 'Total Customers', value: response.data.customers || 0, icon: <Users size={20} />, color: '#f59e0b' },
+          { id: 'categories', label: 'Total Categories', value: response.data.categories || 0, icon: <LayoutList size={20} />, color: '#10b981' },
+          { id: 'spareParts', label: 'Total Spare Parts', value: response.data.spareParts || 0, icon: <Wrench size={20} />, color: '#8b5cf6' },
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch admin stats:', error);
+      }
     };
 
-    stompClient.onStompError = (frame) => {
-      console.error('Lỗi WebSocket STOMP Admin:', frame.headers['message']);
-    };
+    fetchStats();
+    // Poll every 5 seconds for live updates
+    const intervalId = setInterval(fetchStats, 5000);
 
-    stompClient.activate();
-    return () => {
-      stompClient.deactivate();
-    };
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
@@ -83,7 +74,7 @@ const AdminDashboard: React.FC = () => {
           <div className={statCard} key={stat.id} style={{ animationDelay: `${0.05 + i * 0.08}s` }}>
             <p className="mb-2 font-pop text-sm text-ink-muted">{stat.label}</p>
             <h3 className="mb-3 font-display text-4xl font-black tracking-tight text-ink tabular-nums">
-              {stat.id === 'revenue' ? `${stat.value}M₫` : stat.value}
+              {stat.value}
             </h3>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary">

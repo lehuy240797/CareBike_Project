@@ -39,12 +39,27 @@ public class RescueController {
         return ResponseEntity.ok(rescue);
     }
 
+    @GetMapping("/{id}/verify-staff")
+    public ResponseEntity<?> verifyAssignedStaff(
+            @PathVariable Long id, @RequestParam String code) {
+        return ResponseEntity.ok(rescueService.verifyAssignedStaff(id, code));
+    }
+
+    @GetMapping("/{id}/assigned-staff")
+    public ResponseEntity<?> getAssignedStaff(@PathVariable Long id) {
+        return ResponseEntity.ok(rescueService.getAssignedStaff(id));
+    }
+
+
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeRescue(
             @PathVariable Long id,
             @RequestBody com.carebike.backend.features.rescue.dto.RescueCompleteRequest request) {
         rescueService.completeRescue(id, request);
+        return ResponseEntity.ok(java.util.Map.of(
+                "message", "Payment confirmed and rescue completed successfully.")); /*
         return ResponseEntity.ok().body("{\"message\": \"Xác nhận thanh toán và lưu lịch sử thành công\"}");
+        */
     }
 
     @GetMapping("/debug")

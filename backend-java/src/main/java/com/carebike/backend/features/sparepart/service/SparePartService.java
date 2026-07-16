@@ -26,28 +26,26 @@ public class SparePartService {
 
     private final SparePartRepository repository;
     private final CategoryRepository categoryRepository;
+    private final com.carebike.backend.features.websocket.service.WebSocketEventService webSocketEventService;
     // Sử dụng đường dẫn tương đối để dễ dàng chạy trên các máy khác nhau
     @org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads/images/}")
     private String UPLOAD_DIR;
 
-    public List<SparePartResponse> getAllSpareParts(Integer categoryId, String search) {
+    public List<SparePartResponse> getAllSpareParts(Integer categoryId, String search, Boolean activeOnly) {
+        List<SparePart> parts;
         if (categoryId == null && (search == null || search.trim().isEmpty())) {
-            return repository.findAll().stream()
-                    .map(this::mapToResponse)
-                    .collect(Collectors.toList());
-        }
-        
-        // Fix SQL Server "Operand type clash: varbinary is incompatible with int" 
-        // Khi categoryId là null, SQL Server không đoán được kiểu dữ liệu của parameter.
-        if (categoryId == null && search != null && !search.trim().isEmpty()) {
-            return repository.findByNameContainingIgnoreCase(search.trim()).stream()
-                    .map(this::mapToResponse)
-                    .collect(Collectors.toList());
+            parts = repository.findAll();
+        } else if (categoryId == null && search != null && !search.trim().isEmpty()) {
+            parts = repository.findByNameContainingIgnoreCase(search.trim());
+        } else {
+            parts = repository.searchAndFilter(categoryId, search);
         }
 
-        return repository.searchAndFilter(categoryId, search).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        if (Boolean.TRUE.equals(activeOnly)) {
+            parts = parts.stream().filter(p -> p.getIsActive() == null || Boolean.TRUE.equals(p.getIsActive())).collect(Collectors.toList());
+        }
+
+        return parts.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional
@@ -73,7 +71,9 @@ public class SparePartService {
                     .category(category)
                     .build();
 
-            return mapToResponse(repository.save(sparePart));
+            SparePart saved = repository.save(sparePart);
+            webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
+            return mapToResponse(saved);
         } catch (Exception e) {
             // Log lỗi chi tiết để xem tại sao bị 500
             System.err.println("LỖI KHI TẠO PHỤ TÙNG: " + e.getMessage());
@@ -107,7 +107,9 @@ public class SparePartService {
             sparePart.setImageUrl(imageUrl);
         }
 
-        return mapToResponse(repository.save(sparePart));
+        SparePart saved = repository.save(sparePart);
+            webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
+            return mapToResponse(saved);
     }
 
     @Transactional
@@ -118,7 +120,21 @@ public class SparePartService {
         if (sparePart.getImageUrl() != null) {
             deleteImageLocally(sparePart.getImageUrl());
         }
-        repository.deleteById(id);
+        // Soft delete
+        sparePart.setIsActive(false);
+        repository.save(sparePart);
+        webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
+    }
+
+    @Transactional
+    public SparePartResponse toggleActive(Integer id) {
+        SparePart sparePart = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng ID: " + id));
+        boolean currentStatus = sparePart.getIsActive() != null ? sparePart.getIsActive() : true;
+        sparePart.setIsActive(!currentStatus);
+        SparePart saved = repository.save(sparePart);
+        webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
+        return mapToResponse(saved);
     }
 
     private String uploadImageLocally(MultipartFile file) {
@@ -181,7 +197,8 @@ public class SparePartService {
                 sparePart.getDescription(),
                 url,
                 sparePart.getCategory() != null ? sparePart.getCategory().getId() : null,
-                sparePart.getCategory() != null ? sparePart.getCategory().getName() : null
+                sparePart.getCategory() != null ? sparePart.getCategory().getName() : null,
+                sparePart.getIsActive() != null ? sparePart.getIsActive() : true
         );
     }
 }

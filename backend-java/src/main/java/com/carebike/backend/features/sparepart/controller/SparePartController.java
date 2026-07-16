@@ -23,8 +23,9 @@ public class SparePartController {
     @GetMapping
     public ResponseEntity<List<SparePartResponse>> getAll(
             @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(service.getAllSpareParts(categoryId, search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "true") Boolean activeOnly) {
+        return ResponseEntity.ok(service.getAllSpareParts(categoryId, search, activeOnly));
     }
 
     // POST /api/spare-parts
@@ -50,5 +51,11 @@ public class SparePartController {
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         service.deleteSparePart(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // PUT /api/spare-parts/{id}/toggle
+    @PutMapping("/{id}/toggle")
+    public ResponseEntity<SparePartResponse> toggleActive(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.toggleActive(id));
     }
 }

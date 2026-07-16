@@ -39,6 +39,9 @@ const StaffManagement = () => {
     const [statusFilter, setStatusFilter] = useState('All');
     const [view, setView] = useState<'grid' | 'table'>('grid');
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
     const fetchStaffs = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -105,6 +108,14 @@ const StaffManagement = () => {
             (statusFilter === 'locked' && !isActive);
         return matchSearch && matchStatus;
     });
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, statusFilter, view]);
 
     return (
         <>
@@ -191,7 +202,7 @@ const StaffManagement = () => {
                         ) : view === 'grid' ? (
                             /* GRID VIEW */
                             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                                {filtered.map((staff) => {
+                                {paginated.map((staff) => {
                                     const isActive = !!staff.isActive;
                                     return (
                                         <div
@@ -285,7 +296,7 @@ const StaffManagement = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="[&>tr:last-child>td]:border-b-0">
-                                            {filtered.map((staff) => (
+                                            {paginated.map((staff) => (
                                                 <tr key={staff.id} className={tableRow}>
                                                     <td className={`${tdCell} text-sm text-ink-muted`}>{staff.id}</td>
                                                     <td className={`${tdCell} font-medium`}>{staff.fullName || '—'}</td>
@@ -320,6 +331,20 @@ const StaffManagement = () => {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Pagination Controls */}
+                        {filtered.length > 0 && (
+                            <div className="mt-6 border-t border-edge pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <span className="text-sm text-ink-muted">
+                                    Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                                </span>
+                                <div className="flex gap-2">
+                                    <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Prev</button>
+                                    <span className="flex items-center px-2 text-sm font-semibold text-ink-muted">Page {currentPage} of {totalPages}</span>
+                                    <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="rounded-xl border border-edge bg-white px-3 py-1.5 text-sm font-semibold text-ink-muted hover:bg-primary-light hover:text-primary disabled:opacity-50">Next</button>
                                 </div>
                             </div>
                         )}

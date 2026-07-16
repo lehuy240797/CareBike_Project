@@ -24,6 +24,8 @@ public class StaffController {
 
     @Autowired
     private ShiftRepository shiftRepository;
+    @Autowired
+    private com.carebike.backend.features.websocket.service.WebSocketEventService webSocketEventService;
 
     @Autowired
     private com.carebike.backend.features.branch.repository.BranchRepository branchRepository;
@@ -160,7 +162,24 @@ public class StaffController {
         return ResponseEntity.ok(staffRepository.save(staff));
     }
 
-    /** Xóa nhân viên */
+    /** Update staff status. */
+    @PutMapping("/{id}/status")
+    public ResponseEntity<?> updateStaffStatus(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        Staff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found"));
+        String statusStr = body.get("status");
+        if (statusStr != null) {
+            staff.setStatus(com.carebike.backend.features.staff.entity.StaffStatus.valueOf(statusStr));
+            staffRepository.save(staff);
+            if (staff.getBranch() != null) {
+                webSocketEventService.sendBranchUpdate(staff.getBranch().getId(), "STAFF_UPDATED");
+                webSocketEventService.sendBranchUpdate(staff.getBranch().getId(), "SHIFT_UPDATED");
+            }
+        }
+        return ResponseEntity.ok(Map.of("message", "Staff status updated successfully"));
+    }
+
+    /** Delete staff. */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteStaff(@PathVariable Integer id) {
         Staff staff = staffRepository.findById(id)
@@ -169,3 +188,4 @@ public class StaffController {
         return ResponseEntity.ok(Map.of("message", "Xóa nhân viên thành công"));
     }
 }
+

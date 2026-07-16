@@ -14,7 +14,7 @@ public class Vehicle {
     private Integer id;
 
     /** Hãng xe — e.g., Honda, Yamaha, Suzuki, SYM */
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(100)")
     private String brand;
 
     /** Dòng xe — XE_SO or XE_TAY_GA */
@@ -22,7 +22,7 @@ public class Vehicle {
     private String vehicleType;
 
     /** Tên xe — e.g., Airblade, Exciter, Raider */
-    @Column(name = "vehicle_name", nullable = false, length = 150)
+    @Column(name = "vehicle_name", nullable = false, columnDefinition = "NVARCHAR(150)")
     private String vehicleName;
     
     /** Biển số xe */

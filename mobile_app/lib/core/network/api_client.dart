@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:mobile_app/core/storage/storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 
 /// Centralized HTTP client for all CareBike API calls.
 /// Local development uses adb reverse, so WiFi changes do not require code edits.
@@ -15,7 +13,8 @@ class ApiClient {
     final user = FirebaseAuth.instance.currentUser;
     final token = user != null ? await user.getIdToken() : null;
     return {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -27,7 +26,10 @@ class ApiClient {
     return http.get(Uri.parse('$baseUrl$path'), headers: headers);
   }
 
-  static Future<http.Response> post(String path, Map<String, dynamic> body) async {
+  static Future<http.Response> post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     final headers = await _authHeaders();
     return http.post(
       Uri.parse('$baseUrl$path'),
@@ -36,7 +38,10 @@ class ApiClient {
     );
   }
 
-  static Future<http.Response> put(String path, Map<String, dynamic> body) async {
+  static Future<http.Response> put(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     final headers = await _authHeaders();
     return http.put(
       Uri.parse('$baseUrl$path'),
@@ -51,7 +56,9 @@ class ApiClient {
   static dynamic parseResponse(http.Response response) {
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     if (response.statusCode >= 400) {
-      final msg = decoded is Map ? (decoded['message'] ?? decoded.toString()) : decoded.toString();
+      final msg = decoded is Map
+          ? (decoded['message'] ?? decoded['error'] ?? decoded.toString())
+          : decoded.toString();
       throw ApiException(response.statusCode, msg.toString());
     }
     return decoded;

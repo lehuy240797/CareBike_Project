@@ -20,7 +20,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "full_name")
+    @Column(name = "full_name", columnDefinition = "NVARCHAR(255)")
     private String fullName;
 
     private String phone;
@@ -28,7 +28,7 @@ public class User {
     @Column(name = "dob")
     private LocalDate dob;
 
-    @Column(name = "gender", length = 20)
+    @Column(name = "gender", columnDefinition = "NVARCHAR(20)")
     private String gender;
     
     @ManyToOne

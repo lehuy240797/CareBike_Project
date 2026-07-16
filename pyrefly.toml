@@ -1,0 +1,7 @@
+project-includes = ["python-vision-api/**/*.py"]
+project-excludes = ["python-vision-api/venv/**", "**/__pycache__/**"]
+search-path = ["python-vision-api"]
+
+python-interpreter-path = "python-vision-api/venv/Scripts/python.exe"
+site-package-path = ["python-vision-api/venv/Lib/site-packages"]
+python-version = "3.11"
