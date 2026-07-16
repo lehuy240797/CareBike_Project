@@ -1,26 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useWebSocketEvent } from '../context/WebSocketContext';
-import { Plus, Trash2, Package, Search, LayoutGrid, List, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, Package, Plus, Search, Wrench } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SparePartModal from '../components/modals/SparePartModal';
+import { useWebSocketEvent } from '../context/WebSocketContext';
 import apiClient from '../services/apiClient';
 import {
   badgeNeutral,
   badgeSuccess,
   btnPrimary,
   dashTitle,
+  dataTable,
   eyebrow,
   iconBtnDelete,
   iconBtnEdit,
+  iconBtnUnlock,
   pageSubtitle,
   tableCard,
   tableEmpty,
-  dataTable,
+  tableRow,
   tableScroll,
   tableSpinner,
-  thCell,
   tdCell,
-  tableRow,
+  thCell,
 } from '../ui/styles';
 
 export interface SparePart {
@@ -31,12 +32,16 @@ export interface SparePart {
   imageUrl: string | null;
   categoryId?: number;
   categoryName?: string;
+  isActive: boolean;
 }
 
-// Reuse similar pill and viewBtn as CustomerManagement
+type StatusFilter = 'all' | 'visible' | 'hidden';
+type ViewMode = 'grid' | 'table';
+
 const searchInputStyle =
   'w-full rounded-2xl border border-edge bg-primary-light/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20';
-const viewBtn = (active: boolean) =>
+
+const filterButton = (active: boolean) =>
   `flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
     active ? 'bg-primary text-white shadow' : 'text-primary-deep hover:bg-primary-muted'
   }`;
@@ -44,38 +49,42 @@ const viewBtn = (active: boolean) =>
 const SparePartManagement: React.FC = () => {
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [view, setView] = useState<ViewMode>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [togglingPartId, setTogglingPartId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'grid' | 'table'>('table');
-  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   const fetchSpareParts = useCallback(async (background = false) => {
     try {
       if (!background) setIsLoading(true);
-      const response = await apiClient.get('/spare-parts');
-      if (response.status === 200) {
-        setSpareParts(response.data);
-      } else {
-        toast.error('Error loading spare parts data!');
-      }
+      const response = await apiClient.get<SparePart[]>('/spare-parts?activeOnly=false');
+      setSpareParts(response.data);
     } catch (error) {
-      console.error('Connection error:', error);
-      toast.error('Unable to connect to server!');
+      console.error('Unable to load spare parts:', error);
+      toast.error('Unable to load spare parts.');
     } finally {
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
     }
   }, []);
 
-  useWebSocketEvent('SPARE_PART_UPDATED', () => { void fetchSpareParts(true); });
+  useWebSocketEvent('SPARE_PART_UPDATED', () => {
+    void fetchSpareParts(true);
+  });
 
   useEffect(() => {
-    void Promise.resolve().then(() => fetchSpareParts());
+    void fetchSpareParts();
   }, [fetchSpareParts]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, view]);
+
   const handleOpenModal = (part?: SparePart) => {
-    setSelectedPart(part || null);
+    setSelectedPart(part ?? null);
     setIsModalOpen(true);
   };
 
@@ -84,88 +93,125 @@ const SparePartManagement: React.FC = () => {
     setSelectedPart(null);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this spare part?')) {
-      try {
-        const response = await apiClient.delete(`/spare-parts/${id}`);
-        if (response.status === 204 || response.status === 200) {
-          toast.success('Spare part deleted successfully!');
-          fetchSpareParts();
-        } else {
-          toast.error('Error deleting from server!');
-        }
-      } catch (error) {
-        toast.error('Error connecting to server!');
-      }
+  const handleToggleVisibility = async (part: SparePart) => {
+    const nextVisible = !part.isActive;
+    const action = nextVisible ? 'show' : 'hide';
+    const confirmed = window.confirm(
+      `${nextVisible ? 'Show' : 'Hide'} "${part.name}"? ${
+        nextVisible
+          ? 'It will be available to customers and branches again.'
+          : 'It will no longer be available to customers and branches.'
+      }`,
+    );
+
+    if (!confirmed) return;
+
+    setTogglingPartId(part.id);
+    try {
+      await apiClient.put(`/spare-parts/${part.id}/toggle`);
+      toast.success(`Spare part ${nextVisible ? 'shown' : 'hidden'} successfully!`);
+      await fetchSpareParts(true);
+    } catch (error) {
+      console.error(`Unable to ${action} spare part:`, error);
+      toast.error(`Unable to ${action} this spare part.`);
+    } finally {
+      setTogglingPartId(null);
     }
   };
 
-  const filteredParts = spareParts.filter(
-    (part) =>
-      part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (part.description && part.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredParts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return spareParts.filter((part) => {
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'visible' ? part.isActive : !part.isActive);
+      const matchesSearch =
+        part.name.toLowerCase().includes(query) ||
+        (part.description?.toLowerCase().includes(query) ?? false);
+      return matchesStatus && matchesSearch;
+    });
+  }, [searchTerm, spareParts, statusFilter]);
 
-  const totalPages = Math.ceil(filteredParts.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const totalPages = Math.max(1, Math.ceil(filteredParts.length / itemsPerPage));
+  const page = Math.min(currentPage, totalPages);
+  const startIndex = (page - 1) * itemsPerPage;
   const paginatedParts = filteredParts.slice(startIndex, startIndex + itemsPerPage);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, view]);
+  const visibilityButton = (part: SparePart) => (
+    <button
+      type="button"
+      disabled={togglingPartId === part.id}
+      className={part.isActive ? iconBtnDelete : iconBtnUnlock}
+      onClick={() => handleToggleVisibility(part)}
+      title={part.isActive ? 'Hide product' : 'Show product'}
+      aria-label={part.isActive ? `Hide ${part.name}` : `Show ${part.name}`}
+    >
+      {part.isActive ? <EyeOff size={15} /> : <Eye size={15} />}
+    </button>
+  );
 
   return (
     <div className="mx-auto max-w-[80rem]">
-      {/* Header */}
       <div className="mb-8 flex flex-col items-start justify-between gap-4 animate-fade-up sm:flex-row sm:items-center">
         <div>
           <p className={eyebrow}>Inventory</p>
           <h1 className={`${dashTitle} mt-1`}>Spare Parts</h1>
-          <p className={pageSubtitle}>Manage inventory, pricing, and spare part details</p>
+          <p className={pageSubtitle}>Manage inventory, pricing, visibility, and spare part details</p>
         </div>
         <button type="button" onClick={() => handleOpenModal()} className={btnPrimary}>
           <Plus size={18} /> Add Spare Part
         </button>
       </div>
 
-      {/* Filter bar */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-3xl border border-edge bg-white p-4 shadow-sm animate-fade-up" style={{ animationDelay: '0.1s' }}>
+      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-3xl border border-edge bg-white p-4 shadow-sm animate-fade-up">
         <div className="relative min-w-48 flex-1">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
           <input
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search parts by name or description..."
             className={searchInputStyle}
           />
         </div>
+
         <div className="flex items-center gap-1 rounded-2xl border border-edge bg-primary-light/50 p-1">
-          <button type="button" onClick={() => setView('grid')} className={viewBtn(view === 'grid')}>
+          {(['all', 'visible', 'hidden'] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+              className={filterButton(statusFilter === status)}
+            >
+              {status === 'all' ? 'All' : status === 'visible' ? 'Visible' : 'Hidden'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 rounded-2xl border border-edge bg-primary-light/50 p-1">
+          <button type="button" onClick={() => setView('grid')} className={filterButton(view === 'grid')}>
             <LayoutGrid size={14} /> Grid
           </button>
-          <button type="button" onClick={() => setView('table')} className={viewBtn(view === 'table')}>
+          <button type="button" onClick={() => setView('table')} className={filterButton(view === 'table')}>
             <List size={14} /> Table
           </button>
         </div>
       </div>
 
-      {/* Content */}
       {isLoading ? (
-        <div className={`${tableCard} animate-fade-up`} style={{ animationDelay: '0.2s' }}>
+        <div className={`${tableCard} animate-fade-up`}>
           <div className={tableEmpty}>
             <div className={tableSpinner} aria-label="Loading..." />
             <p className="m-0">Loading spare parts...</p>
           </div>
         </div>
       ) : filteredParts.length === 0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-edge bg-white py-20 text-center animate-fade-up" style={{ animationDelay: '0.2s' }}>
+        <div className="rounded-3xl border-2 border-dashed border-edge bg-white py-20 text-center animate-fade-up">
           <Package size={40} className="mx-auto mb-3 text-primary opacity-40" aria-hidden="true" />
           <h3 className="m-0 font-display text-xl font-black text-ink">No spare parts found</h3>
-          <p className="mt-1 text-sm text-ink-muted">Try changing your search terms or add a new part.</p>
+          <p className="mt-1 text-sm text-ink-muted">Try another search or visibility filter.</p>
         </div>
       ) : view === 'table' ? (
-        /* TABLE VIEW */
-        <div className={`${tableCard} animate-fade-up`} style={{ animationDelay: '0.2s' }}>
+        <div className={`${tableCard} animate-fade-up`}>
           <div className={tableScroll}>
             <table className={dataTable}>
               <thead>
@@ -174,12 +220,13 @@ const SparePartManagement: React.FC = () => {
                   <th className={thCell}>Product</th>
                   <th className={thCell}>Category</th>
                   <th className={thCell}>Price</th>
+                  <th className={thCell}>Status</th>
                   <th className={`${thCell} text-right`}>Actions</th>
                 </tr>
               </thead>
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {paginatedParts.map((part) => (
-                  <tr key={part.id} className={tableRow}>
+                  <tr key={part.id} className={`${tableRow} ${!part.isActive ? 'bg-stone-50 opacity-70' : ''}`}>
                     <td className={`${tdCell} text-sm text-ink-muted`}>#{part.id}</td>
                     <td className={tdCell}>
                       <div className="flex items-center gap-3">
@@ -201,33 +248,22 @@ const SparePartManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className={tdCell}>
-                      <span className={badgeNeutral}>
-                        {part.categoryName || 'Uncategorized'}
+                      <span className={badgeNeutral}>{part.categoryName || 'Uncategorized'}</span>
+                    </td>
+                    <td className={tdCell}>
+                      <span className={badgeSuccess}>{part.price.toLocaleString('vi-VN')} VNĐ</span>
+                    </td>
+                    <td className={tdCell}>
+                      <span className={part.isActive ? badgeSuccess : badgeNeutral}>
+                        {part.isActive ? 'Visible' : 'Hidden'}
                       </span>
                     </td>
                     <td className={tdCell}>
-                      <span className={badgeSuccess}>
-                        {part.price.toLocaleString('vi-VN')} VNĐ
-                      </span>
-                    </td>
-                    <td className={tdCell}>
-                      <div className="flex items-center justify-end gap-1.5 opacity-60 transition-opacity hover:opacity-100">
-                        <button
-                          type="button"
-                          className={iconBtnEdit}
-                          onClick={() => handleOpenModal(part)}
-                          title="Edit"
-                        >
+                      <div className="flex items-center justify-end gap-1.5 opacity-70 transition-opacity hover:opacity-100">
+                        <button type="button" className={iconBtnEdit} onClick={() => handleOpenModal(part)} title="Edit">
                           <Wrench size={15} />
                         </button>
-                        <button
-                          type="button"
-                          className={iconBtnDelete}
-                          onClick={() => handleDelete(part.id)}
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {visibilityButton(part)}
                       </div>
                     </td>
                   </tr>
@@ -237,14 +273,14 @@ const SparePartManagement: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* GRID VIEW */
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-fade-up">
           {paginatedParts.map((part) => (
             <div
               key={part.id}
-              className="group flex flex-col overflow-hidden rounded-3xl border border-edge bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-[0_10px_35px_rgba(249,115,22,0.12)]"
+              className={`group flex flex-col overflow-hidden rounded-3xl border border-edge bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:shadow-[0_10px_35px_rgba(249,115,22,0.12)] ${
+                !part.isActive ? 'opacity-65 grayscale-[35%]' : ''
+              }`}
             >
-              {/* Image Header */}
               <div className="relative h-48 w-full border-b border-edge bg-primary-light/20">
                 {part.imageUrl ? (
                   <img src={part.imageUrl} alt={part.name} className="h-full w-full object-cover" />
@@ -254,46 +290,28 @@ const SparePartManagement: React.FC = () => {
                   </div>
                 )}
                 <div className="absolute right-3 top-3">
-                  <span className={`${badgeSuccess} shadow-md`}>
-                    {part.price.toLocaleString('vi-VN')} VNĐ
-                  </span>
+                  <span className={`${badgeSuccess} shadow-md`}>{part.price.toLocaleString('vi-VN')} VNĐ</span>
                 </div>
               </div>
-              
-              {/* Content */}
+
               <div className="flex flex-1 flex-col p-5">
-                <div className="mb-2">
-                  <span className={badgeNeutral}>
-                    {part.categoryName || 'Uncategorized'}
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={badgeNeutral}>{part.categoryName || 'Uncategorized'}</span>
+                  <span className={part.isActive ? badgeSuccess : badgeNeutral}>
+                    {part.isActive ? 'Visible' : 'Hidden'}
                   </span>
                 </div>
-                <h3 className="m-0 mb-1.5 font-display text-lg font-black leading-tight text-ink">
-                  {part.name}
-                </h3>
+                <h3 className="m-0 mb-1.5 font-display text-lg font-black leading-tight text-ink">{part.name}</h3>
                 <p className="m-0 mb-4 line-clamp-2 text-sm text-ink-muted">
                   {part.description || 'No description available.'}
                 </p>
-                
-                {/* Spacer to push actions to bottom */}
                 <div className="mt-auto flex items-center justify-between border-t border-edge pt-4">
                   <span className="text-xs text-ink-muted/70">ID: #{part.id}</span>
                   <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      className={iconBtnEdit}
-                      onClick={() => handleOpenModal(part)}
-                      title="Edit"
-                    >
+                    <button type="button" className={iconBtnEdit} onClick={() => handleOpenModal(part)} title="Edit">
                       <Wrench size={15} />
                     </button>
-                    <button
-                      type="button"
-                      className={iconBtnDelete}
-                      onClick={() => handleDelete(part.id)}
-                      title="Delete"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {visibilityButton(part)}
                   </div>
                 </div>
               </div>
@@ -303,21 +321,23 @@ const SparePartManagement: React.FC = () => {
       )}
 
       {totalPages > 1 && !isLoading && (
-        <div className="mt-8 flex items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+        <div className="mt-8 flex items-center justify-center gap-3 animate-fade-up">
           <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="flex items-center justify-center h-9 w-9 rounded-xl border border-edge bg-white transition hover:bg-primary-light hover:text-primary disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-ink"
+            type="button"
+            onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+            disabled={page === 1}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-edge bg-white transition hover:bg-primary-light hover:text-primary disabled:opacity-40"
           >
             <ChevronLeft size={18} />
           </button>
           <span className="text-sm font-semibold text-ink-muted">
-            Page <span className="text-ink">{currentPage}</span> of <span className="text-ink">{totalPages}</span>
+            Page <span className="text-ink">{page}</span> of <span className="text-ink">{totalPages}</span>
           </span>
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className="flex items-center justify-center h-9 w-9 rounded-xl border border-edge bg-white transition hover:bg-primary-light hover:text-primary disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-ink"
+            type="button"
+            onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
+            disabled={page === totalPages}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-edge bg-white transition hover:bg-primary-light hover:text-primary disabled:opacity-40"
           >
             <ChevronRight size={18} />
           </button>
@@ -335,4 +355,3 @@ const SparePartManagement: React.FC = () => {
 };
 
 export default SparePartManagement;
-

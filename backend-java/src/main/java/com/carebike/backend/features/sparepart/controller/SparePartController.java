@@ -46,12 +46,6 @@ public class SparePartController {
         return ResponseEntity.ok(response);
     }
 
-    // DELETE /api/spare-parts/{id}
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        service.deleteSparePart(id);
-        return ResponseEntity.noContent().build();
-    }
 
     // PUT /api/spare-parts/{id}/toggle
     @PutMapping("/{id}/toggle")

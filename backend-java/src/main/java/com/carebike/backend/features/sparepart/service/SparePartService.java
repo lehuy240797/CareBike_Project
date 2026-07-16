@@ -113,20 +113,6 @@ public class SparePartService {
     }
 
     @Transactional
-    public void deleteSparePart(Integer id) {
-        SparePart sparePart = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng ID: " + id));
-
-        if (sparePart.getImageUrl() != null) {
-            deleteImageLocally(sparePart.getImageUrl());
-        }
-        // Soft delete
-        sparePart.setIsActive(false);
-        repository.save(sparePart);
-        webSocketEventService.sendGlobalUpdate("SPARE_PART_UPDATED");
-    }
-
-    @Transactional
     public SparePartResponse toggleActive(Integer id) {
         SparePart sparePart = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng ID: " + id));
