@@ -352,7 +352,11 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
         child: FloatingActionButton(
-          onPressed: () => openInspectionSheet(context),
+          onPressed: () => openInspectionSheet(
+            context,
+            onOpenVehicles: () => setState(() => _currentIndex = 1),
+          ),
+          tooltip: 'AI tire inspection',
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
           elevation: 0,

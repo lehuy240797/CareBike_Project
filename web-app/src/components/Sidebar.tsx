@@ -11,6 +11,7 @@ import {
   CalendarDays,
   History,
   Wrench,
+  Gauge,
   BarChart3,
 } from 'lucide-react';
 
@@ -80,6 +81,12 @@ const NAV_ITEMS: NavItem[] = [
     to: '/spare-parts',
     icon: <Wrench size={20} aria-hidden="true" />,
     label: 'Spare Parts',
+    roles: ['ADMIN'],
+  },
+  {
+    to: '/tire-specs',
+    icon: <Gauge size={20} aria-hidden="true" />,
+    label: 'Tire Specs',
     roles: ['ADMIN'],
   },
   {

@@ -91,6 +91,7 @@ class _HomeTabState extends State<HomeTab> {
   TimeOfDay? _selectedTime;
   int? _selectedVehicleId;
   final _noteCtrl = TextEditingController();
+  final _bookingCardKey = GlobalKey();
   bool _isBooking = false;
   String? _bookingError;
   String? _bookingSuccess;
@@ -141,11 +142,15 @@ class _HomeTabState extends State<HomeTab> {
     try {
       final response = await ApiClient.get('/vehicles/owner/$userId');
       final data = ApiClient.parseResponse(response) as List;
+      final vehicles = List<Map<String, dynamic>>.from(data);
+      final currentVehicleId = _selectedVehicleId;
+      final hasCurrentVehicle = currentVehicleId != null &&
+          vehicles.any((v) => v['id'] == currentVehicleId);
       setState(() {
-        _vehicles = List<Map<String, dynamic>>.from(data);
-        if (_vehicles.isNotEmpty) {
-          _selectedVehicleId = _vehicles.first['id'] as int;
-        }
+        _vehicles = vehicles;
+        _selectedVehicleId = hasCurrentVehicle
+            ? currentVehicleId
+            : (_vehicles.isNotEmpty ? _vehicles.first['id'] as int : null);
         _vehiclesLoading = false;
       });
     } catch (_) {
@@ -510,6 +515,7 @@ class _HomeTabState extends State<HomeTab> {
             _quickTabs(),
             const SizedBox(height: 12),
             Padding(
+              key: _bookingCardKey,
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
               child: _bookingCard(),
             ),
@@ -803,7 +809,7 @@ class _HomeTabState extends State<HomeTab> {
 
   // ── Quick tabs ─────────────────────────────────────────────────────────────
   /// Route a quick-tab tap to its destination (mirrors the side-drawer actions).
-  void _onQuickTap(_QuickAction action) {
+  Future<void> _onQuickTap(_QuickAction action) async {
     switch (action) {
       case _QuickAction.branchMap:
         Navigator.push(
@@ -811,10 +817,12 @@ class _HomeTabState extends State<HomeTab> {
           MaterialPageRoute(builder: (_) => const BranchMapScreen()),
         );
       case _QuickAction.support:
-        Navigator.push(
+        final bookingRequest = await Navigator.push<ChatBookingRequest>(
           context,
           MaterialPageRoute(builder: (_) => const SupportChatScreen()),
         );
+        if (!mounted || bookingRequest == null) return;
+        _applyChatBookingRequest(bookingRequest);
       case _QuickAction.spareParts:
         Navigator.push(
           context,
@@ -828,6 +836,30 @@ class _HomeTabState extends State<HomeTab> {
           MaterialPageRoute(builder: (_) => const CustomerAppointmentScreen()),
         );
     }
+  }
+
+  void _applyChatBookingRequest(ChatBookingRequest request) {
+    setState(() {
+      if (request.vehicleId != null) {
+        _selectedVehicleId = request.vehicleId;
+      }
+      if (request.note.trim().isNotEmpty) {
+        _noteCtrl.text = request.note.trim();
+      }
+      _bookingError = null;
+      _bookingSuccess = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bookingContext = _bookingCardKey.currentContext;
+      if (bookingContext == null) return;
+      Scrollable.ensureVisible(
+        bookingContext,
+        alignment: 0.05,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Widget _quickTabs() {

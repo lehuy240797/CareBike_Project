@@ -1,21 +1,23 @@
 package com.carebike.backend.features.ai.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * DTO đại diện cho response body trả về từ endpoint tư vấn AI.
- * Chứa câu trả lời đã được xử lý từ mô hình Gemini.
- */
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AiConsultResponse {
-
-    /** Câu trả lời tư vấn bảo dưỡng từ AI */
     private String reply;
-
-    // === Constructor ===
-
-    public AiConsultResponse() {
-    }
+    private Integer vehicleId;
+    private String vehicleLabel;
+    private String intent;
+    private String urgency;
+    private List<AiHealthCard> healthCards = new ArrayList<>();
+    private List<AiSuggestedAction> actions = new ArrayList<>();
 
     public AiConsultResponse(String reply) {
         this.reply = reply;

@@ -15,6 +15,7 @@ import 'package:mobile_app/core/network/web_socket_service.dart';
 import 'package:mobile_app/features/rescue/rescue_store.dart';
 import 'package:mobile_app/features/branch/screens/branch_customer_intake_screen.dart';
 import 'package:mobile_app/features/branch/screens/branch_rescue_screen.dart';
+import 'package:mobile_app/features/branch/screens/branch_tire_assistant_screen.dart';
 import 'package:mobile_app/features/branch/screens/branch_walk_in_repair_screen.dart';
 import 'package:mobile_app/features/branch/widgets/sos_alert_dialog.dart';
 import 'package:mobile_app/core/network/api_client.dart';
@@ -213,6 +214,12 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
         },
         onViewRescues: () => setState(() => _currentIndex = 1),
         onViewAppointments: () => setState(() => _currentIndex = 2),
+        onTireAssistant: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BranchTireAssistantScreen()),
+          );
+        },
       ),
       branchId != null
           ? BranchRescueScreen(branchId: branchId)
@@ -343,6 +350,7 @@ class _BranchMobileDashboardState extends State<BranchMobileDashboard> {
 class _BranchHomeTab extends StatelessWidget {
   final AuthProvider auth;
   final VoidCallback onWalkInRepair;
+  final VoidCallback onTireAssistant;
   final VoidCallback onViewRescues;
   final VoidCallback onViewAppointments;
   final int pendingAptCount;
@@ -351,6 +359,7 @@ class _BranchHomeTab extends StatelessWidget {
   const _BranchHomeTab({
     required this.auth,
     required this.onWalkInRepair,
+    required this.onTireAssistant,
     required this.onViewRescues,
     required this.onViewAppointments,
     required this.pendingAptCount,
@@ -483,6 +492,13 @@ class _BranchHomeTab extends StatelessWidget {
                     title: 'Walk-in repair',
                     subtitle: 'Create order for customer without account',
                     onTap: onWalkInRepair,
+                  ),
+                  const SizedBox(height: 12),
+                  _homeActionCard(
+                    icon: Icons.center_focus_strong_rounded,
+                    title: 'AI tire assistant',
+                    subtitle: 'Quick tire scan with replacement options',
+                    onTap: onTireAssistant,
                   ),
                   if (sos.isNotEmpty) ...[
                     const SizedBox(height: 16),

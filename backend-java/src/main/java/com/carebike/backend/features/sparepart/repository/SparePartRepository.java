@@ -16,5 +16,14 @@ public interface SparePartRepository extends JpaRepository<SparePart, Integer> {
            "AND (:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<SparePart> searchAndFilter(@Param("categoryId") Integer categoryId, @Param("keyword") String keyword);
 
+    @Query("SELECT s FROM SparePart s WHERE (:categoryId IS NULL OR s.category.id = :categoryId) " +
+           "AND (:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(s.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    List<SparePart> searchCatalogText(@Param("categoryId") Integer categoryId, @Param("keyword") String keyword);
+
+    @Query("SELECT s FROM SparePart s WHERE (:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(s.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    List<SparePart> searchCatalogTextWithoutCategory(@Param("keyword") String keyword);
+
     List<SparePart> findByNameContainingIgnoreCase(String keyword);
 }
