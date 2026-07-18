@@ -48,10 +48,6 @@ public class RescueService {
     @Autowired
     private com.carebike.backend.features.staff.service.StaffAssignmentService staffAssignmentService;
 
-    // 1. Xóa @Autowired ở đây
-
-    // 2. Thêm hàm Setter này để tiêm Bean một cách an toàn và trì hoãn (Lazy)
-
     @Transactional
     public Rescue createRescueRequest(RescueRequestDto dto) {
         if (dto.getLatitude() == null || dto.getLongitude() == null) {
@@ -76,10 +72,14 @@ public class RescueService {
 
         // Sắp xếp chi nhánh theo khoảng cách tăng dần
         allBranches.sort((b1, b2) -> {
-            if (b1.getLatitude() == null || b1.getLongitude() == null) return 1;
-            if (b2.getLatitude() == null || b2.getLongitude() == null) return -1;
-            double d1 = calculateHaversine(dto.getLatitude().doubleValue(), dto.getLongitude().doubleValue(), b1.getLatitude().doubleValue(), b1.getLongitude().doubleValue());
-            double d2 = calculateHaversine(dto.getLatitude().doubleValue(), dto.getLongitude().doubleValue(), b2.getLatitude().doubleValue(), b2.getLongitude().doubleValue());
+            if (b1.getLatitude() == null || b1.getLongitude() == null)
+                return 1;
+            if (b2.getLatitude() == null || b2.getLongitude() == null)
+                return -1;
+            double d1 = calculateHaversine(dto.getLatitude().doubleValue(), dto.getLongitude().doubleValue(),
+                    b1.getLatitude().doubleValue(), b1.getLongitude().doubleValue());
+            double d2 = calculateHaversine(dto.getLatitude().doubleValue(), dto.getLongitude().doubleValue(),
+                    b2.getLatitude().doubleValue(), b2.getLongitude().doubleValue());
             return Double.compare(d1, d2);
         });
 
@@ -92,7 +92,7 @@ public class RescueService {
         } else if (hour >= 22 || hour < 6) {
             currentShiftType = "NIGHT";
         }
-        
+
         java.time.LocalDate shiftDate = java.time.LocalDate.now();
         if (hour < 6) {
             shiftDate = shiftDate.minusDays(1);
@@ -103,9 +103,11 @@ public class RescueService {
 
         // Quét tìm chi nhánh gần nhất có nhân viên FREE
         for (Branch branch : allBranches) {
-            if (branch.getLatitude() == null || branch.getLongitude() == null) continue;
-            
-            List<com.carebike.backend.features.staff.entity.Staff> freeStaff = shiftRepository.findFreeStaffInShift(branch.getId(), shiftDate, currentShiftType);
+            if (branch.getLatitude() == null || branch.getLongitude() == null)
+                continue;
+
+            List<com.carebike.backend.features.staff.entity.Staff> freeStaff = shiftRepository
+                    .findFreeStaffInShift(branch.getId(), shiftDate, currentShiftType);
             if (!freeStaff.isEmpty()) {
                 assignedBranch = branch;
                 // Có thể random hoặc lấy người đầu tiên
@@ -136,22 +138,17 @@ public class RescueService {
         rescue.setLongitude(dto.getLongitude().doubleValue());
 
         rescue.setIssueDescription(dto.getIssueDescription());
-        
-        if (assignedStaff != null) {
-            rescue.setStaffCode(assignedStaff.getStaffCode());
-            rescue.setAssignedStaffName(assignedStaff.getFullName());
-            rescue.setAssignedStaffPhone(assignedStaff.getPhone());
-            rescue.setDistanceKm(calculateHaversine(
-                    dto.getLatitude(), dto.getLongitude(),
-                    assignedBranch.getLatitude().doubleValue(), assignedBranch.getLongitude().doubleValue()));
 
-            rescue.setStatus("ACCEPTED");
-            // Đổi trạng thái nhân viên thành BUSY
-            assignedStaff.setStatus(com.carebike.backend.features.staff.entity.StaffStatus.BUSY);
-            staffRepository.save(assignedStaff);
-        } else {
-            rescue.setStatus("PENDING");
-        }
+        rescue.setStaffCode(assignedStaff.getStaffCode());
+        rescue.setAssignedStaffName(assignedStaff.getFullName());
+        rescue.setAssignedStaffPhone(assignedStaff.getPhone());
+        rescue.setDistanceKm(calculateHaversine(
+                dto.getLatitude(), dto.getLongitude(),
+                assignedBranch.getLatitude().doubleValue(), assignedBranch.getLongitude().doubleValue()));
+
+        rescue.setStatus("ACCEPTED");
+        assignedStaff.setStatus(com.carebike.backend.features.staff.entity.StaffStatus.BUSY);
+        staffRepository.save(assignedStaff);
 
         Rescue savedRescue = rescueRepository.save(rescue);
 
@@ -204,6 +201,7 @@ public class RescueService {
                 .orElseThrow(() -> new RuntimeException("Rescue request not found."));
         return validateAssignedStaff(rescue, staffCode);
     }
+
     @Transactional(readOnly = true)
     public com.carebike.backend.features.staff.entity.Staff getAssignedStaff(Long rescueId) {
         Rescue rescue = rescueRepository.findById(rescueId)
@@ -215,7 +213,6 @@ public class RescueService {
         return staffRepository.findByStaffCode(assignedCode)
                 .orElseThrow(() -> new RuntimeException("The assigned staff member could not be found."));
     }
-
 
     private com.carebike.backend.features.staff.entity.Staff validateAssignedStaff(
             Rescue rescue, String submittedCode) {
@@ -252,8 +249,10 @@ public class RescueService {
 
     private String currentShiftType() {
         int hour = java.time.LocalTime.now().getHour();
-        if (hour >= 14 && hour < 22) return "AFTERNOON";
-        if (hour >= 22 || hour < 6) return "NIGHT";
+        if (hour >= 14 && hour < 22)
+            return "AFTERNOON";
+        if (hour >= 22 || hour < 6)
+            return "NIGHT";
         return "MORNING";
     }
 
@@ -270,28 +269,8 @@ public class RescueService {
             throw new RuntimeException("This rescue request has already been completed.");
         }
 
-        com.carebike.backend.features.staff.entity.Staff assignedStaff =
-                validateAssignedStaff(rescue, request.staffCode());
-
-        // KIỂM TRA NHÂN VIÊN CÓ CA LÀM KHÔNG
-        if (false && request.staffCode() != null && !request.staffCode().isBlank()) {
-            com.carebike.backend.features.staff.entity.Staff staff = staffRepository.findByStaffCode(request.staffCode())
-                    .orElseThrow(() -> new RuntimeException("Mã nhân viên không hợp lệ."));
-
-            java.util.List<com.carebike.backend.features.staff.entity.Shift> shiftsToday =
-                shiftRepository.findByStaffIdAndShiftDate(staff.getId(), java.time.LocalDate.now());
-
-            if (shiftsToday == null || shiftsToday.isEmpty()) {
-                throw new RuntimeException("Lỗi: Nhân viên " + staff.getFullName() + " không có lịch làm việc trong ngày hôm nay.");
-            }
-            
-            // Set status to FREE
-            staff.setStatus(com.carebike.backend.features.staff.entity.StaffStatus.FREE);
-            staffRepository.save(staff);
-            if (staff.getBranch() != null) {
-                webSocketEventService.sendBranchUpdate(staff.getBranch().getId(), "SHIFT_UPDATED");
-            }
-        }
+        com.carebike.backend.features.staff.entity.Staff assignedStaff = validateAssignedStaff(rescue,
+                request.staffCode());
 
         // 1. Cập nhật trạng thái và thông tin bổ sung
         rescue = rescueRepository.findById(rescueId)
@@ -312,7 +291,10 @@ public class RescueService {
         // Customer & Vehicle Info
         invoiceNode.put("customerName", rescue.getCustomer() != null ? rescue.getCustomer().getFullName() : "");
         invoiceNode.put("customerPhone", rescue.getCustomer() != null ? rescue.getCustomer().getPhone() : "");
-        invoiceNode.put("vehicleName", rescue.getVehicle() != null ? rescue.getVehicle().getBrand() + " " + rescue.getVehicle().getVehicleName() : "");
+        invoiceNode.put("vehicleName",
+                rescue.getVehicle() != null
+                        ? rescue.getVehicle().getBrand() + " " + rescue.getVehicle().getVehicleName()
+                        : "");
         invoiceNode.put("vehiclePlate", rescue.getVehicle() != null ? rescue.getVehicle().getLicensePlate() : "");
         invoiceNode.put("staffCode", assignedStaff.getStaffCode());
         String staffNameStr = assignedStaff.getFullName();
@@ -325,7 +307,8 @@ public class RescueService {
         invoiceNode.put("timeMultiplier", multiplier);
         invoiceNode.put("laborCost", request.laborCost() != null ? request.laborCost() : java.math.BigDecimal.ZERO);
         invoiceNode.put("distanceKm", request.distanceKm() != null ? request.distanceKm() : 0.0);
-        invoiceNode.put("transportFee", request.transportFee() != null ? request.transportFee() : java.math.BigDecimal.ZERO);
+        invoiceNode.put("transportFee",
+                request.transportFee() != null ? request.transportFee() : java.math.BigDecimal.ZERO);
 
         java.math.BigDecimal totalCost = request.laborCost() != null ? request.laborCost() : java.math.BigDecimal.ZERO;
 
@@ -363,8 +346,7 @@ public class RescueService {
         notificationService.notifyRescueStatusChanged(savedRescue);
 
         // 3. Lưu vào lịch sử bảo dưỡng
-        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history =
-            new com.carebike.backend.features.maintenance.entity.MaintenanceHistory();
+        com.carebike.backend.features.maintenance.entity.MaintenanceHistory history = new com.carebike.backend.features.maintenance.entity.MaintenanceHistory();
         history.setServiceDate(java.time.LocalDate.now());
         history.setCurrentKm(0);
         history.setServiceDetails(detailsString);
