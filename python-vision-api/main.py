@@ -1,6 +1,15 @@
 import io
 import os
 from pathlib import Path
+from typing import Any, Callable
+
+BASE_DIR = Path(__file__).resolve().parent
+YOLO_CONFIG_DIR = BASE_DIR / ".ultralytics"
+MPL_CONFIG_DIR = BASE_DIR / ".matplotlib"
+YOLO_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+MPL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("YOLO_CONFIG_DIR", str(YOLO_CONFIG_DIR))
+os.environ.setdefault("MPLCONFIGDIR", str(MPL_CONFIG_DIR))
 
 import numpy as np
 from fastapi import FastAPI, UploadFile, File # pyrefly: ignore [missing-import]
@@ -18,8 +27,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DAMAGE_MODEL_PATH = os.getenv("CAREBIKE_DAMAGE_MODEL", "best.pt")
-VALIDATOR_MODEL_PATH = os.getenv("CAREBIKE_VALIDATOR_MODEL", "tire_validator.pt")
+def _model_path(env_name: str, default_name: str) -> str:
+    raw_path = os.getenv(env_name, default_name)
+    path = Path(raw_path)
+    if path.is_absolute():
+        return str(path)
+    return str(BASE_DIR / path)
+
+
+DAMAGE_MODEL_PATH = _model_path("CAREBIKE_DAMAGE_MODEL", "best.pt")
+VALIDATOR_MODEL_PATH = _model_path("CAREBIKE_VALIDATOR_MODEL", "tire_validator.pt")
 VALID_TIRE_CONFIDENCE = float(os.getenv("CAREBIKE_VALID_TIRE_CONFIDENCE", "0.35"))
 INVALID_IMAGE_CONFIDENCE = float(os.getenv("CAREBIKE_INVALID_IMAGE_CONFIDENCE", "0.45"))
 
@@ -149,17 +166,35 @@ def _normalize_label(label: str) -> str:
     return label.strip().lower().replace("-", "_").replace(" ", "_")
 
 
-def _run_model(image: Image.Image, yolo_model: YOLO) -> list:
+def _scalar_value(value):
+    if value is None:
+        return None
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:
+            pass
+    return value
+
+
+Detection = dict[str, Any]
+
+
+def _run_model(image: Image.Image, yolo_model: YOLO) -> list[Detection]:
     results = yolo_model(image, verbose=False)
-    detections = []
+    detections: list[Detection] = []
 
     for r in results:
         boxes = getattr(r, "boxes", None)
         if boxes is not None:
             for box in boxes:
                 b = box.xyxy[0].tolist()
-                conf = float(box.conf[0])
-                class_id = int(box.cls[0])
+                raw_conf = _scalar_value(box.conf[0] if box.conf is not None else None)
+                raw_class_id = _scalar_value(box.cls[0] if box.cls is not None else None)
+                if raw_conf is None or raw_class_id is None:
+                    continue
+                conf = float(raw_conf)
+                class_id = int(raw_class_id)
 
                 detections.append({
                     "label": _model_label(yolo_model, class_id),
@@ -173,9 +208,13 @@ def _run_model(image: Image.Image, yolo_model: YOLO) -> list:
                 })
 
         probs = getattr(r, "probs", None)
-        if probs is not None and getattr(probs, "top1", None) is not None:
-            class_id = int(probs.top1)
-            conf = float(probs.top1conf)
+        if probs is not None:
+            raw_class_id = _scalar_value(getattr(probs, "top1", None))
+            raw_conf = _scalar_value(getattr(probs, "top1conf", None))
+            if raw_class_id is None or raw_conf is None:
+                continue
+            class_id = int(raw_class_id)
+            conf = float(raw_conf)
             detections.append({
                 "label": _model_label(yolo_model, class_id),
                 "confidence": round(conf, 2),
@@ -185,7 +224,10 @@ def _run_model(image: Image.Image, yolo_model: YOLO) -> list:
     return detections
 
 
-def _top_detection(detections: list, predicate):
+def _top_detection(
+    detections: list[Detection],
+    predicate: Callable[[str], bool],
+) -> Detection | None:
     matches = [
         detection for detection in detections
         if predicate(_normalize_label(str(detection.get("label", ""))))

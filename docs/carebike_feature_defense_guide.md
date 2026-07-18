@@ -32,7 +32,28 @@ flowchart LR
     Backend --> Gemini["Gemini API"]
     Mobile --> Vision["Python FastAPI Vision API"]
     BranchMobile["Flutter Branch Role"] --> Vision
-    Vision --> Yolo["YOLO best.pt"]
+    Vision --> Validator["YOLO tire_validator.pt"]
+    Validator --> DamageYolo["YOLO best.pt"]
+```
+
+Diagram tương tác full-screen để trình bày kiến trúc:
+
+- [Mở CareBike System Map](diagrams/carebike_system_map.html)
+
+Sơ đồ đọc nhanh theo các điểm nhấn khi bảo vệ:
+
+```mermaid
+flowchart LR
+    Auth["Auth + role"] --> Chatbot["Chatbot RAG"]
+    Chatbot --> Inspection["AI tire inspection"]
+    Inspection --> Quote["Transparent tire quote"]
+    Quote --> Branch["Branch AI assistant"]
+
+    Auth -. "Firebase token + SQL roles" .-> DB["SQL Server"]
+    Chatbot -. "vehicle, history, appointment context" .-> DB
+    Inspection -. "validator model + damage model" .-> Vision["Vision API"]
+    Quote -. "vehicle_tire_specs + spare_parts" .-> DB
+    Branch -. "shared Vision + quote backend" .-> Vision
 ```
 
 Các file cấu hình, kết nối chính:
@@ -640,11 +661,26 @@ API chính:
 | `POST /api/vision/precheck` | Kiểm tra ảnh có phù hợp để phân tích lốp không |
 | `POST /api/vision/analyze` | Phân tích ảnh bằng YOLO và trả detection |
 
-Vision API làm 3 việc:
+Vision API làm 4 việc:
 
 1. Đọc ảnh upload bằng PIL.
-2. Chạy YOLO model `best.pt`.
-3. Tạo kết quả gồm `status`, `precheck`, `detections`, `total_defects_found`.
+2. Chạy precheck chất lượng ảnh và model validator `tire_validator.pt`.
+3. Nếu ảnh hợp lệ, chạy YOLO damage model `best.pt`.
+4. Tạo kết quả gồm `status`, `precheck`, `detections`, `total_defects_found`.
+
+Pipeline hiện tại:
+
+```mermaid
+flowchart TD
+    Photo["Ảnh từ camera/gallery"] --> Quality["Quality checks: size, brightness, blur"]
+    Quality --> Validator["tire_validator.pt"]
+    Validator --> Valid{"valid_tire đủ tự tin?"}
+    Valid -- "Không" --> Reject["Trả invalid_photo + lý do"]
+    Valid -- "Có" --> Damage["best.pt damage detection"]
+    Damage --> Detections["YOLO detections"]
+    Detections --> Report["DamageReport trên mobile"]
+    Report --> Decision["Quyết định: chạy tiếp, kiểm tra, hoặc báo giá"]
+```
 
 Ví dụ response hợp lệ:
 
@@ -685,27 +721,42 @@ Ví dụ response ảnh không hợp lệ:
 
 ### 5.8. Precheck ảnh không phải lốp
 
-Hiện tại `precheck` đang dùng kết hợp:
+Hiện tại `precheck` dùng 2 lớp kiểm tra:
 
-- Kích thước ảnh.
-- Độ sáng.
-- Độ mờ.
-- Mật độ cạnh.
-- Tỉ lệ vùng màu tối giống cao su.
-- Heuristic vùng da người.
-- Kết quả YOLO nếu có detection.
+1. Quality gate:
+   - Kích thước ảnh.
+   - Độ sáng.
+   - Độ mờ.
+   - Mật độ cạnh.
+2. Tire validator model:
+   - Model: `python-vision-api/tire_validator.pt`
+   - Mục tiêu: xác nhận ảnh có đúng là lốp trước khi chạy model phân tích hư hỏng.
 
-Ý nghĩa:
+Các tag validator đang dùng:
 
-- Chặn ảnh quá tối, quá sáng, quá mờ, quá nhỏ.
-- Chặn ảnh có khả năng là mặt người hoặc nội dung nhạy cảm.
-- Chặn ảnh không đủ dấu hiệu giống lốp.
+| Tag | Ý nghĩa | Cách xử lý |
+|---|---|---|
+| `valid_tire` | Ảnh phù hợp để phân tích lốp | Cho chạy tiếp `best.pt` |
+| `invalid_person` | Ảnh người/khuôn mặt | Chặn và yêu cầu chụp/upload vùng lốp |
+| `invalid_house` | Ảnh phòng/nhà/bối cảnh trong nhà | Chặn và yêu cầu ảnh lốp rõ hơn |
+| `invalid_scenery` | Ảnh phong cảnh | Chặn |
+| `invalid_food` | Ảnh đồ ăn | Chặn |
 
-Hạn chế quan trọng:
+Nếu không tìm thấy `tire_validator.pt`, backend vẫn còn fallback heuristic để tránh API chết hoàn toàn. Tuy nhiên bản demo nên chạy đúng model validator để tránh tình huống ảnh mặt người bị trả kết quả "No obvious issue".
 
-- Đây mới là heuristic, chưa phải model nhận diện ảnh hợp lệ chuyên dụng.
-- Nếu ảnh người có nhiều vùng tối/cạnh hoặc YOLO nhận nhầm, hệ thống vẫn có thể cho qua.
-- Vì vậy hướng nâng cấp đúng là train thêm model validator nhận diện `tire` và `not_tire/person/sensitive/other`, sau đó dùng model đó trước khi chạy model damage.
+Sơ đồ chặn ảnh không hợp lệ:
+
+```mermaid
+flowchart TD
+    Input["Upload/chụp ảnh"] --> Quality{"Ảnh đủ rõ?"}
+    Quality -- "Không" --> LowQuality["invalid_photo: ảnh mờ/tối/quá nhỏ"]
+    Quality -- "Có" --> Validator["tire_validator.pt"]
+    Validator --> Label{"Top label"}
+    Label -- "valid_tire" --> Damage["Chạy best.pt phân tích hư hỏng"]
+    Label -- "invalid_person" --> PersonReject["Photo not accepted: ảnh người/khuôn mặt"]
+    Label -- "invalid_house/scenery/food" --> OtherReject["Photo not accepted: không phải lốp"]
+    Damage --> Result["Inspection result"]
+```
 
 ### 5.9. Chuyển detection thành báo cáo người dùng
 
@@ -863,6 +914,22 @@ Backend xử lý:
 7. Sắp xếp theo giá tăng dần.
 8. Trả tối đa 5 lựa chọn.
 
+Sơ đồ đề xuất lốp và báo giá:
+
+```mermaid
+flowchart LR
+    Vehicle["Xe đang chọn"] --> Spec["vehicle_tire_specs"]
+    Position["Front/Rear"] --> Spec
+    Spec --> Size["Chuẩn hóa size: 90/80-14"]
+    Size --> Catalog["Tìm trong spare_parts name/description"]
+    Catalog --> Options["Tối đa 5 option"]
+    Options --> Estimate["Giá lốp + công thay dự kiến"]
+    Estimate --> UI["Transparent estimate trên mobile"]
+
+    Admin["Admin Tire Specs form"] -. "cập nhật dữ liệu chuẩn" .-> Spec
+    Future["spare_part_compatibility"] -. "nâng độ chính xác" .-> Catalog
+```
+
 Response gồm:
 
 - Thông tin xe/spec.
@@ -955,6 +1022,20 @@ flowchart TD
 - Customer app giúp người dùng tự kiểm tra sơ bộ.
 - Branch app giúp nhân viên kiểm tra nhanh hơn, chuẩn hóa bước tư vấn.
 - Cả hai dùng chung Vision API và Tire Recommendation backend, tránh viết logic trùng.
+
+Sơ đồ dùng chung lõi AI/backend:
+
+```mermaid
+flowchart LR
+    Customer["Customer tire scan"] --> VisionCore["Shared Vision API"]
+    Branch["Branch tire assistant"] --> VisionCore
+    VisionCore --> Validator["tire_validator.pt"]
+    Validator --> Damage["best.pt"]
+    Damage --> Report["DamageReport"]
+    Report --> Recommendation["Tire Recommendation API"]
+    Recommendation --> CustomerUI["Customer estimate"]
+    Recommendation --> BranchUI["Branch replacement options"]
+```
 
 ## 8. Bảng API liên quan
 

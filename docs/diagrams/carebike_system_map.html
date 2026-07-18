@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareBike System Map</title>
+<script>
+  (function () {
+    const saved = localStorage.getItem('carebike-diagram-theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #fffaf4;
+    --surface: #ffffff;
+    --surface-2: #fff3e4;
+    --ink: #161310;
+    --body: #504a43;
+    --muted: #847a70;
+    --line: #eadfD3;
+    --line-strong: #d8c7b8;
+    --primary: #ff6b18;
+    --primary-soft: rgba(255, 107, 24, 0.12);
+    --green: #18a957;
+    --green-soft: rgba(24, 169, 87, 0.13);
+    --blue: #356dff;
+    --blue-soft: rgba(53, 109, 255, 0.12);
+    --red: #e53935;
+    --red-soft: rgba(229, 57, 53, 0.12);
+    --shadow: rgba(49, 24, 8, 0.12);
+    --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  html.dark {
+    --bg: #14110f;
+    --surface: #201c19;
+    --surface-2: #2a241f;
+    --ink: #fff8f1;
+    --body: #dacfc5;
+    --muted: #a99d92;
+    --line: #3b332d;
+    --line-strong: #5b4e44;
+    --primary: #ff8a3d;
+    --primary-soft: rgba(255, 138, 61, 0.16);
+    --green: #53d986;
+    --green-soft: rgba(83, 217, 134, 0.16);
+    --blue: #7da0ff;
+    --blue-soft: rgba(125, 160, 255, 0.16);
+    --red: #ff7a76;
+    --red-soft: rgba(255, 122, 118, 0.16);
+    --shadow: rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--body);
+    font-family: var(--sans);
+  }
+
+  .toolbar {
+    height: 74px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 8px 24px var(--shadow);
+    position: relative;
+    z-index: 10;
+  }
+
+  .brand {
+    min-width: 245px;
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 20px;
+    line-height: 1.15;
+    font-weight: 850;
+  }
+
+  .subtitle {
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex: 1;
+  }
+
+  button {
+    font-family: inherit;
+  }
+
+  .chip, .tool-btn {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--body);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease, transform .15s ease;
+  }
+
+  .chip:hover, .tool-btn:hover {
+    color: var(--ink);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .chip.on {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--bg);
+  }
+
+  .stage {
+    position: relative;
+    height: calc(100vh - 74px);
+    min-height: 480px;
+    cursor: grab;
+    overflow: hidden;
+  }
+
+  .stage.dragging {
+    cursor: grabbing;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background:
+      radial-gradient(circle at 18% 14%, var(--primary-soft), transparent 23%),
+      radial-gradient(circle at 82% 78%, var(--blue-soft), transparent 25%),
+      var(--bg);
+  }
+
+  .zone rect {
+    fill: var(--surface);
+    stroke: var(--line);
+    stroke-width: 1.4;
+    rx: 20;
+  }
+
+  .zone-title {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .node {
+    cursor: pointer;
+  }
+
+  .node rect {
+    fill: var(--surface);
+    stroke: var(--line-strong);
+    stroke-width: 1.5;
+    rx: 14;
+    filter: drop-shadow(0 7px 16px var(--shadow));
+    transition: stroke .15s ease, stroke-width .15s ease, opacity .2s ease;
+  }
+
+  .node text {
+    pointer-events: none;
+  }
+
+  .node .title {
+    fill: var(--ink);
+    font-size: 16px;
+    font-weight: 850;
+  }
+
+  .node .meta {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .node.mobile rect { fill: var(--primary-soft); stroke: var(--primary); }
+  .node.backend rect { fill: var(--blue-soft); stroke: var(--blue); }
+  .node.ai rect { fill: var(--green-soft); stroke: var(--green); }
+  .node.guard rect { fill: var(--red-soft); stroke: var(--red); }
+  .node.store rect { fill: var(--surface-2); }
+  .node.selected rect { stroke: var(--primary); stroke-width: 3; }
+
+  .edge {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    marker-end: url(#arrow);
+    opacity: .72;
+    transition: opacity .18s ease, stroke .18s ease;
+  }
+
+  .edge.dashed {
+    stroke-dasharray: 8 7;
+  }
+
+  .edge-label {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    opacity: .9;
+  }
+
+  .stage.flowing .edge,
+  .stage.flowing .edge-label,
+  .stage.flowing .node {
+    opacity: .22;
+  }
+
+  .stage.flowing .node.lit {
+    opacity: 1;
+  }
+
+  .stage.flowing .node.lit rect {
+    stroke-width: 3;
+  }
+
+  .stage.flowing .edge.lit {
+    opacity: 1;
+    stroke: var(--primary);
+    marker-end: url(#arrow-lit);
+    stroke-dasharray: 10 7;
+    animation: dash 1s linear infinite;
+  }
+
+  .stage.flowing .edge-label.lit {
+    opacity: 1;
+    fill: var(--primary);
+  }
+
+  @keyframes dash {
+    to { stroke-dashoffset: -17; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage.flowing .edge.lit { animation: none; }
+  }
+
+  .panel {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    width: min(390px, calc(100vw - 36px));
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 18px;
+    box-shadow: 0 18px 50px var(--shadow);
+    padding: 16px;
+    z-index: 6;
+  }
+
+  .panel.hidden {
+    display: none;
+  }
+
+  .panel-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .panel h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.25;
+  }
+
+  .panel .tag {
+    margin-top: 4px;
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .panel p {
+    margin: 12px 0 0;
+    line-height: 1.55;
+    font-size: 13.5px;
+  }
+
+  .close {
+    margin-left: auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--body);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .hud {
+    position: absolute;
+    left: 18px;
+    bottom: 18px;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px;
+    box-shadow: 0 12px 36px var(--shadow);
+  }
+
+  .zoom {
+    min-width: 58px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 880px) {
+    .toolbar {
+      height: auto;
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .stage {
+      height: calc(100vh - 132px);
+    }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <div class="brand">
+    <h1>CareBike System Map</h1>
+    <div class="subtitle">mobile + web + backend + AI</div>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip on" data-flow="all">All</button>
+    <button class="chip" data-flow="auth">Auth</button>
+    <button class="chip" data-flow="chatbot">Chatbot RAG</button>
+    <button class="chip" data-flow="inspection">Tire AI</button>
+    <button class="chip" data-flow="quote">Transparent quote</button>
+    <button class="chip" data-flow="branch">Branch assistant</button>
+  </div>
+  <button class="tool-btn" id="themeToggle">Theme</button>
+</div>
+
+<main class="stage" id="stage">
+<svg viewBox="0 0 1680 980" role="img" aria-label="CareBike architecture and feature flow diagram">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"></path>
+    </marker>
+    <marker id="arrow-lit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--primary)"></path>
+    </marker>
+  </defs>
+
+  <g id="svg-content">
+    <g class="zone">
+      <rect x="50" y="85" width="310" height="750"></rect>
+      <text class="zone-title" x="78" y="125">Actors / UI</text>
+    </g>
+    <g class="zone">
+      <rect x="430" y="85" width="430" height="750"></rect>
+      <text class="zone-title" x="458" y="125">Spring Boot API</text>
+    </g>
+    <g class="zone">
+      <rect x="930" y="85" width="300" height="750"></rect>
+      <text class="zone-title" x="958" y="125">Data & external</text>
+    </g>
+    <g class="zone">
+      <rect x="1300" y="85" width="330" height="750"></rect>
+      <text class="zone-title" x="1328" y="125">Vision AI</text>
+    </g>
+
+    <path class="edge" data-flow="auth" id="e-customer-auth" d="M330,192 C390,192 420,176 470,176"></path>
+    <path class="edge" data-flow="auth" id="e-admin-auth" d="M330,348 C385,348 420,304 470,292"></path>
+    <path class="edge" data-flow="auth" id="e-branch-auth" d="M330,500 C385,500 420,318 470,304"></path>
+    <path class="edge dashed" data-flow="auth" id="e-firebase" d="M720,282 C800,260 890,236 968,214"></path>
+    <path class="edge" data-flow="auth chatbot quote branch" id="e-db" d="M760,365 C825,370 890,380 970,390"></path>
+    <path class="edge" data-flow="chatbot" id="e-chat-mobile" d="M330,225 C405,225 410,432 470,435"></path>
+    <path class="edge" data-flow="chatbot" id="e-chat-context" d="M760,435 C842,435 890,406 970,402"></path>
+    <path class="edge dashed" data-flow="chatbot" id="e-gemini" d="M760,468 C842,510 890,570 970,590"></path>
+    <path class="edge" data-flow="inspection branch" id="e-mobile-vision" d="M330,250 C600,250 1040,648 1338,655"></path>
+    <path class="edge" data-flow="branch" id="e-branch-vision" d="M330,530 C620,566 1030,678 1338,675"></path>
+    <path class="edge" data-flow="inspection branch" id="e-validator" d="M1485,620 L1485,548"></path>
+    <path class="edge" data-flow="inspection branch" id="e-damage" d="M1485,548 L1485,455"></path>
+    <path class="edge" data-flow="inspection quote branch" id="e-report" d="M1340,455 C1130,455 925,650 760,650"></path>
+    <path class="edge" data-flow="quote branch" id="e-quote-db" d="M760,650 C835,640 890,500 970,460"></path>
+    <path class="edge" data-flow="quote branch" id="e-spec-db" d="M760,688 C835,690 890,505 970,480"></path>
+    <path class="edge" data-flow="quote" id="e-admin-spec" d="M330,375 C425,380 430,705 470,705"></path>
+
+    <text class="edge-label" data-edge="e-firebase" x="785" y="248">verify Firebase token</text>
+    <text class="edge-label" data-edge="e-db" x="845" y="354">business data</text>
+    <text class="edge-label" data-edge="e-gemini" x="850" y="552">prompt + context</text>
+    <text class="edge-label" data-edge="e-mobile-vision" x="770" y="610">photo bytes</text>
+    <text class="edge-label" data-edge="e-report" x="1030" y="592">detections -> report</text>
+    <text class="edge-label" data-edge="e-quote-db" x="845" y="626">spare parts + tire specs</text>
+
+    <g class="node mobile" data-key="customer" data-flows="auth chatbot inspection quote">
+      <rect x="90" y="150" width="240" height="120"></rect>
+      <text class="title" x="118" y="190">Customer mobile</text>
+      <text class="meta" x="118" y="218">Flutter app</text>
+      <text class="meta" x="118" y="238">booking, chatbot, tire scan</text>
+    </g>
+
+    <g class="node mobile" data-key="admin" data-flows="auth quote">
+      <rect x="90" y="315" width="240" height="100"></rect>
+      <text class="title" x="118" y="354">Web admin</text>
+      <text class="meta" x="118" y="382">React + TypeScript</text>
+      <text class="meta" x="118" y="402">roles, staff, tire specs</text>
+    </g>
+
+    <g class="node mobile" data-key="branch" data-flows="auth branch">
+      <rect x="90" y="475" width="240" height="120"></rect>
+      <text class="title" x="118" y="515">Branch mobile</text>
+      <text class="meta" x="118" y="543">Flutter branch role</text>
+      <text class="meta" x="118" y="563">AI tire assistant</text>
+    </g>
+
+    <g class="node backend" data-key="auth" data-flows="auth">
+      <rect x="470" y="160" width="290" height="150"></rect>
+      <text class="title" x="500" y="202">Auth + role gate</text>
+      <text class="meta" x="500" y="230">Firebase ID token</text>
+      <text class="meta" x="500" y="250">users / roles table</text>
+      <text class="meta" x="500" y="270">ADMIN, BRANCH, CUSTOMER</text>
+    </g>
+
+    <g class="node backend" data-key="chatbot" data-flows="chatbot">
+      <rect x="470" y="390" width="290" height="120"></rect>
+      <text class="title" x="500" y="430">Chatbot service</text>
+      <text class="meta" x="500" y="458">RAG from SQL records</text>
+      <text class="meta" x="500" y="478">intent + cards + actions</text>
+    </g>
+
+    <g class="node backend" data-key="quote" data-flows="inspection quote branch">
+      <rect x="470" y="625" width="290" height="130"></rect>
+      <text class="title" x="500" y="665">Tire recommendation</text>
+      <text class="meta" x="500" y="693">vehicle_tire_specs</text>
+      <text class="meta" x="500" y="713">spare_parts name/description</text>
+      <text class="meta" x="500" y="733">transparent estimate</text>
+    </g>
+
+    <g class="node store" data-key="firebase" data-flows="auth">
+      <rect x="970" y="165" width="220" height="95"></rect>
+      <text class="title" x="1000" y="204">Firebase Auth</text>
+      <text class="meta" x="1000" y="232">password + Google sign-in</text>
+    </g>
+
+    <g class="node store" data-key="sql" data-flows="auth chatbot quote branch">
+      <rect x="970" y="360" width="220" height="150"></rect>
+      <text class="title" x="1000" y="400">SQL Server</text>
+      <text class="meta" x="1000" y="428">users, roles, vehicles</text>
+      <text class="meta" x="1000" y="448">appointments, history</text>
+      <text class="meta" x="1000" y="468">spare_parts, tire specs</text>
+    </g>
+
+    <g class="node store" data-key="gemini" data-flows="chatbot">
+      <rect x="970" y="560" width="220" height="100"></rect>
+      <text class="title" x="1000" y="600">Gemini API</text>
+      <text class="meta" x="1000" y="628">LLM answer generation</text>
+    </g>
+
+    <g class="node ai" data-key="vision" data-flows="inspection branch">
+      <rect x="1340" y="620" width="290" height="110"></rect>
+      <text class="title" x="1370" y="660">FastAPI Vision API</text>
+      <text class="meta" x="1370" y="688">/precheck + /analyze</text>
+      <text class="meta" x="1370" y="708">shared by customer & branch</text>
+    </g>
+
+    <g class="node guard" data-key="validator" data-flows="inspection branch">
+      <rect x="1340" y="500" width="290" height="82"></rect>
+      <text class="title" x="1370" y="535">tire_validator.pt</text>
+      <text class="meta" x="1370" y="560">valid_tire vs invalid_* tags</text>
+    </g>
+
+    <g class="node ai" data-key="damage" data-flows="inspection branch">
+      <rect x="1340" y="385" width="290" height="82"></rect>
+      <text class="title" x="1370" y="420">best.pt damage YOLO</text>
+      <text class="meta" x="1370" y="445">worn tread, crack, puncture</text>
+    </g>
+  </g>
+</svg>
+
+<section class="panel" id="detailPanel">
+  <div class="panel-head">
+    <div>
+      <h2 id="detailTitle">CareBike end-to-end map</h2>
+      <div class="tag" id="detailTag">Click a node or a flow chip</div>
+    </div>
+    <button class="close" id="closePanel" aria-label="Close detail panel">×</button>
+  </div>
+  <p id="detailBody">Use the chips to highlight how authentication, chatbot RAG, tire inspection, quote recommendation, and branch assistant move through the same stack.</p>
+</section>
+
+<div class="hud">
+  <button class="tool-btn" id="resetView">Reset</button>
+  <span class="zoom" id="zoomLevel">100%</span>
+</div>
+</main>
+
+<script>
+  const stage = document.getElementById('stage');
+  const svg = stage.querySelector('svg');
+  const content = document.getElementById('svg-content');
+  const chips = document.getElementById('chips');
+  const zoomLevel = document.getElementById('zoomLevel');
+  const panel = document.getElementById('detailPanel');
+  const detailTitle = document.getElementById('detailTitle');
+  const detailTag = document.getElementById('detailTag');
+  const detailBody = document.getElementById('detailBody');
+
+  const nodeDetails = {
+    customer: ['Customer mobile', 'Flutter', 'Customer can book maintenance, chat with CareBike AI, and run quick scan or guided full tire inspection.'],
+    admin: ['Web admin', 'React + TypeScript', 'Admin manages users, branch accounts, spare parts, and vehicle tire specifications used for quote matching.'],
+    branch: ['Branch mobile', 'Flutter branch role', 'Branch staff use a compact tire assistant to check a tire quickly and suggest replacement options by selected spec.'],
+    auth: ['Auth + role gate', 'Spring Boot + Firebase Admin SDK', 'Firebase handles sign-in. Backend verifies the ID token and maps the user to CareBike roles in SQL Server.'],
+    chatbot: ['Chatbot service', 'Structured RAG', 'Backend retrieves vehicle, appointment, and maintenance records, builds context, detects intent, then asks Gemini for a grounded response.'],
+    quote: ['Tire recommendation', 'Transparent estimate', 'Backend reads tire size from vehicle_tire_specs, matches spare_parts by size, and returns estimated parts plus labor.'],
+    firebase: ['Firebase Auth', 'External identity provider', 'Stores authentication identity and provides verified ID tokens. CareBike does not store raw passwords.'],
+    sql: ['SQL Server', 'Business source of truth', 'Stores users, roles, vehicles, appointments, maintenance history, spare parts, and tire spec reference data.'],
+    gemini: ['Gemini API', 'LLM response generation', 'Receives backend-curated context and produces user-facing maintenance advice. API key is read from environment config.'],
+    vision: ['FastAPI Vision API', 'Python service', 'Receives images from mobile, runs quality checks, validator model, and damage model, then returns structured detections.'],
+    validator: ['tire_validator.pt', 'Image relevance gate', 'Classifies uploaded images into valid_tire or invalid_person, invalid_house, invalid_scenery, invalid_food before damage analysis.'],
+    damage: ['best.pt damage YOLO', 'Tire damage model', 'Runs only after a valid tire photo is confirmed, then detects visible tire wear or damage.']
+  };
+
+  const flowDetails = {
+    all: ['All flows', 'System overview', 'Shows the complete CareBike stack and the shared services used by customer, admin, and branch roles.'],
+    auth: ['Authentication flow', 'Firebase -> Spring Boot -> SQL roles', 'Mobile and web sign in with Firebase. Backend verifies token, loads local user/role, then authorizes features.'],
+    chatbot: ['Chatbot RAG flow', 'SQL context -> Gemini -> action cards', 'The assistant does not guess from an empty prompt. Backend fetches real vehicle and maintenance data first.'],
+    inspection: ['Customer tire AI flow', 'Quick scan or guided full check', 'The image is validated by tire_validator.pt first. Valid tire photos continue to damage YOLO and a user decision report.'],
+    quote: ['Transparent quote flow', 'Spec size -> catalog match -> estimate', 'The system explains why a tire is suggested and shows estimated parts/labor instead of jumping straight to booking.'],
+    branch: ['Branch assistant flow', 'Staff helper mode', 'Branch staff select a vehicle spec, scan one tire photo, then receive fast AI findings and replacement options.']
+  };
+
+  function showPanel(title, tag, body) {
+    detailTitle.textContent = title;
+    detailTag.textContent = tag;
+    detailBody.textContent = body;
+    panel.classList.remove('hidden');
+  }
+
+  function clearHighlights() {
+    stage.classList.remove('flowing');
+    document.querySelectorAll('.lit').forEach((el) => el.classList.remove('lit'));
+  }
+
+  function setFlow(flow) {
+    document.querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('on', chip.dataset.flow === flow));
+    clearHighlights();
+    const info = flowDetails[flow];
+    if (info) showPanel(info[0], info[1], info[2]);
+    if (flow === 'all') return;
+
+    stage.classList.add('flowing');
+    document.querySelectorAll('.node').forEach((node) => {
+      const flows = (node.dataset.flows || '').split(/\s+/);
+      if (flows.includes(flow)) node.classList.add('lit');
+    });
+    document.querySelectorAll('.edge').forEach((edge) => {
+      const flows = (edge.dataset.flow || '').split(/\s+/);
+      if (flows.includes(flow)) edge.classList.add('lit');
+    });
+    document.querySelectorAll('.edge-label').forEach((label) => {
+      const target = document.getElementById(label.dataset.edge);
+      if (target && target.classList.contains('lit')) label.classList.add('lit');
+    });
+  }
+
+  chips.addEventListener('click', (event) => {
+    const chip = event.target.closest('.chip');
+    if (!chip) return;
+    setFlow(chip.dataset.flow);
+  });
+
+  document.querySelectorAll('.node').forEach((node) => {
+    node.addEventListener('click', () => {
+      document.querySelectorAll('.node.selected').forEach((item) => item.classList.remove('selected'));
+      node.classList.add('selected');
+      const info = nodeDetails[node.dataset.key];
+      if (info) showPanel(info[0], info[1], info[2]);
+    });
+  });
+
+  document.getElementById('closePanel').addEventListener('click', () => {
+    panel.classList.add('hidden');
+  });
+
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const dark = !document.documentElement.classList.contains('dark');
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('carebike-diagram-theme', dark ? 'dark' : 'light');
+  });
+
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+  let suppressClick = false;
+
+  function applyTransform() {
+    content.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
+    zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+  }
+
+  function clientToSvg(clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  stage.addEventListener('pointerdown', (event) => {
+    if (event.target.closest('.chip, .tool-btn, .panel, button')) return;
+    dragging = true;
+    moved = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    stage.classList.add('dragging');
+    stage.setPointerCapture(event.pointerId);
+  });
+
+  stage.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+    tx += dx;
+    ty += dy;
+    startX = event.clientX;
+    startY = event.clientY;
+    applyTransform();
+  });
+
+  stage.addEventListener('pointerup', (event) => {
+    if (!dragging) return;
+    dragging = false;
+    stage.classList.remove('dragging');
+    if (moved) suppressClick = true;
+    try { stage.releasePointerCapture(event.pointerId); } catch (_) {}
+  });
+
+  stage.addEventListener('click', (event) => {
+    if (!suppressClick) return;
+    event.stopPropagation();
+    event.preventDefault();
+    suppressClick = false;
+  }, true);
+
+  stage.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    const before = clientToSvg(event.clientX, event.clientY);
+    const factor = event.deltaY < 0 ? 1.08 : 0.92;
+    const next = Math.max(0.45, Math.min(2.8, scale * factor));
+    if (next === scale) return;
+    scale = next;
+    const after = clientToSvg(event.clientX, event.clientY);
+    tx += (after.x - before.x) * scale;
+    ty += (after.y - before.y) * scale;
+    applyTransform();
+  }, { passive: false });
+
+  document.getElementById('resetView').addEventListener('click', () => {
+    scale = 1;
+    tx = 0;
+    ty = 0;
+    applyTransform();
+  });
+
+  applyTransform();
+</script>
+</body>
+</html>

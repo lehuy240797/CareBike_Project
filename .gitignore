@@ -14,3 +14,6 @@ __pycache__/
 .agents/
 .claude/
 python-vision-api/venv/
+python-vision-api/.ultralytics/
+python-vision-api/.matplotlib/
+python-vision-api/Ultralytics/
