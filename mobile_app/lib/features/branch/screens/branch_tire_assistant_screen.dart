@@ -99,7 +99,11 @@ class _BranchTireAssistantScreenState extends State<BranchTireAssistantScreen> {
 
     try {
       await VisionApiService.precheck(bytes, sourceView: 'Technician photo');
-      final report = await VisionApiService.analyze(bytes, sourceView: 'Technician photo');
+      final report = await VisionApiService.analyze(
+        bytes,
+        sourceView: 'Technician photo',
+        verifyPhoto: false,
+      );
 
       TireRecommendation? recommendation;
       String? quoteError;

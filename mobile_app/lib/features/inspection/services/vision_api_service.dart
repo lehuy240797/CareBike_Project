@@ -23,6 +23,12 @@ class VisionApiService {
   static final Uri _endpoint = Uri.parse('$visionApiBaseUrl/api/vision/analyze');
   static final Uri _precheckEndpoint = Uri.parse('$visionApiBaseUrl/api/vision/precheck');
   static const int guidedRequiredPhotoCount = 5;
+  static const Map<String, String> _invalidLabelMessages = {
+    'invalid_person': 'This photo may contain a person or face. Please upload only the tire area.',
+    'invalid_house': 'This photo looks like a room, building, or indoor scene. Please capture the tire clearly.',
+    'invalid_scenery': 'This photo looks like scenery, not a tire. Please capture the tire, tread, or sidewall.',
+    'invalid_food': 'This photo looks like food. Please upload only the tire, tread, or sidewall.',
+  };
 
   static Future<void> precheck(
     Uint8List imageBytes, {
@@ -32,22 +38,28 @@ class VisionApiService {
       final decoded = await _postImage(_precheckEndpoint, imageBytes);
       final status = (decoded['status'] ?? '').toString();
       if (status != 'success') {
+        if (status == 'invalid_photo') {
+          throw _invalidPhotoExceptionFrom(
+            decoded,
+            sourceView: sourceView,
+            fallback: 'This photo is not suitable for tire inspection.',
+          );
+        }
         final msg = (decoded['message'] ?? '').toString().trim();
         throw AiException(msg.isNotEmpty ? msg : 'Could not verify this photo. Please try again.');
       }
 
-      final precheck = decoded['precheck'];
-      if (precheck is! Map<String, dynamic>) {
+      final precheck = _asMap(decoded['precheck']);
+      if (precheck == null) {
         throw const AiException('Could not verify this photo. Please try a clearer tire photo.');
       }
 
       final valid = precheck['valid'] == true;
       if (!valid) {
-        final msg = (precheck['message'] ?? '').toString().trim();
-        throw AiException(
-          msg.isNotEmpty
-              ? '$sourceView: $msg'
-              : '$sourceView: This photo does not look suitable for tire inspection.',
+        throw _invalidPhotoExceptionFrom(
+          {'precheck': precheck},
+          sourceView: sourceView,
+          fallback: 'This photo does not look suitable for tire inspection.',
         );
       }
     } on AiException {
@@ -66,8 +78,13 @@ class VisionApiService {
     Uint8List imageBytes, {
     InspectionMode mode = InspectionMode.quickScan,
     String sourceView = 'Quick photo',
+    bool verifyPhoto = true,
   }) async {
-    final detections = await _fetchDetections(imageBytes);
+    if (verifyPhoto) {
+      await precheck(imageBytes, sourceView: sourceView);
+    }
+
+    final detections = await _fetchDetections(imageBytes, sourceView: sourceView);
     return _toReport(
       detections,
       mode: mode,
@@ -88,7 +105,7 @@ class VisionApiService {
     final views = photos.map((p) => p.viewName).toList(growable: false);
 
     for (final photo in photos) {
-      final detections = await _fetchDetections(photo.imageBytes);
+      final detections = await _fetchDetections(photo.imageBytes, sourceView: photo.viewName);
       final report = _toReport(
         detections,
         mode: InspectionMode.guidedFullCheck,
@@ -114,16 +131,32 @@ class VisionApiService {
     );
   }
 
-  static Future<List<dynamic>> _fetchDetections(Uint8List imageBytes) async {
+  static Future<List<dynamic>> _fetchDetections(
+    Uint8List imageBytes, {
+    required String sourceView,
+  }) async {
     try {
       final decoded = await _postImage(_endpoint, imageBytes);
       final status = (decoded['status'] ?? '').toString();
       if (status != 'success') {
-        final msg = (decoded['message'] ?? '').toString().trim();
         if (status == 'invalid_photo') {
-          throw AiException(msg.isNotEmpty ? msg : 'This photo is not suitable for tire inspection.');
+          throw _invalidPhotoExceptionFrom(
+            decoded,
+            sourceView: sourceView,
+            fallback: 'This photo is not suitable for tire inspection.',
+          );
         }
+        final msg = (decoded['message'] ?? '').toString().trim();
         throw AiException(msg.isNotEmpty ? msg : 'Could not analyze the photo. Please try again.');
+      }
+
+      final precheck = _asMap(decoded['precheck']);
+      if (precheck != null && precheck['valid'] == false) {
+        throw _invalidPhotoExceptionFrom(
+          decoded,
+          sourceView: sourceView,
+          fallback: 'This photo is not suitable for tire inspection.',
+        );
       }
 
       return (decoded['detections'] as List?) ?? const [];
@@ -141,6 +174,109 @@ class VisionApiService {
       debugPrint('VisionApiService error: $e');
       throw _networkAwareException(e, fallback: 'Could not analyze the photo: $e');
     }
+  }
+
+  static InvalidInspectionPhotoException _invalidPhotoExceptionFrom(
+    Map<String, dynamic> payload, {
+    required String sourceView,
+    required String fallback,
+  }) {
+    final precheck = _asMap(payload['precheck']);
+    final message = _invalidPhotoMessage(
+      precheck,
+      payloadMessage: (payload['message'] ?? '').toString(),
+      fallback: fallback,
+    );
+    final invalidDetection = _topInvalidValidatorDetection(precheck);
+    final label = _normalizeValidatorLabel((invalidDetection?['label'] ?? '').toString());
+    final confidence = _asDouble(invalidDetection?['confidence']);
+    final reason = (precheck?['reason'] ?? '').toString().trim();
+
+    return InvalidInspectionPhotoException(
+      _withSourceView(sourceView, message),
+      reason: reason.isEmpty ? null : reason,
+      label: label.isEmpty ? null : label,
+      confidence: confidence > 0 ? confidence : null,
+    );
+  }
+
+  static String _invalidPhotoMessage(
+    Map<String, dynamic>? precheck, {
+    required String payloadMessage,
+    required String fallback,
+  }) {
+    final label = _normalizeValidatorLabel((_topInvalidValidatorDetection(precheck)?['label'] ?? '').toString());
+    final labelMessage = _invalidLabelMessages[label];
+    if (labelMessage != null) return labelMessage;
+
+    final precheckMessage = (precheck?['message'] ?? '').toString().trim();
+    if (precheckMessage.isNotEmpty) return precheckMessage;
+
+    final msg = payloadMessage.trim();
+    if (msg.isNotEmpty) return msg;
+
+    final reason = (precheck?['reason'] ?? '').toString().trim();
+    if (reason == 'low_quality') {
+      return 'This photo is too unclear for tire inspection. Please retake it with the tire sharp and well lit.';
+    }
+    if (reason == 'person_or_sensitive_content') {
+      return 'This photo may contain a person or sensitive content. Please upload only the tire area.';
+    }
+    if (reason == 'wrong_component') {
+      return 'I could not confirm a tire in this photo. Please capture the tire, tread, or sidewall clearly.';
+    }
+    return fallback;
+  }
+
+  static Map<String, dynamic>? _topInvalidValidatorDetection(Map<String, dynamic>? precheck) {
+    final validator = _asMap(precheck?['validator']);
+    final detections = validator?['detections'];
+    if (detections is! List) return null;
+    final threshold = _asDouble(validator?['invalid_image_confidence_threshold']);
+    final minConfidence = threshold > 0 ? threshold : 0.45;
+
+    Map<String, dynamic>? best;
+    var bestConfidence = -1.0;
+    for (final raw in detections) {
+      final item = _asMap(raw);
+      if (item == null) continue;
+
+      final label = _normalizeValidatorLabel((item['label'] ?? '').toString());
+      if (!label.startsWith('invalid_')) continue;
+
+      final confidence = _asDouble(item['confidence']);
+      if (confidence < minConfidence) continue;
+      if (confidence > bestConfidence) {
+        best = item;
+        bestConfidence = confidence;
+      }
+    }
+
+    return best;
+  }
+
+  static String _withSourceView(String sourceView, String message) {
+    final source = sourceView.trim();
+    final msg = message.trim();
+    if (source.isEmpty || msg.startsWith('$source:')) return msg;
+    return '$source: $msg';
+  }
+
+  static Map<String, dynamic>? _asMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return null;
+  }
+
+  static double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  static String _normalizeValidatorLabel(String label) {
+    return label.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   }
 
   static Future<Map<String, dynamic>> _postImage(Uri endpoint, Uint8List imageBytes) async {

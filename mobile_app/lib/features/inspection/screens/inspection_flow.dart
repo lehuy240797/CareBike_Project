@@ -581,8 +581,20 @@ Future<void> _runQuickInspection(BuildContext context, ImageSource source, _Insp
   DamageReport report;
   _QuoteLoadResult quoteResult = const _QuoteLoadResult();
   try {
-    report = await VisionApiService.analyze(bytes);
+    report = await VisionApiService.analyze(
+      bytes,
+      sourceView: 'Quick photo',
+      verifyPhoto: false,
+    );
     quoteResult = await _loadQuoteIfNeeded(context, report, inspectionContext);
+  } on InvalidInspectionPhotoException catch (e) {
+    if (context.mounted) Navigator.pop(context);
+    if (!context.mounted) return;
+    final retry = await _showInvalidPhotoDialog(context, e.message);
+    if (context.mounted && retry == true) {
+      await _runQuickInspection(context, source, inspectionContext);
+    }
+    return;
   } on AiException catch (e) {
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) _showErrorDialog(context, e.message);
@@ -690,6 +702,14 @@ Future<void> _runGuidedFullCheck(BuildContext context, _InspectionContext inspec
           .toList(growable: false),
     );
     quoteResult = await _loadQuoteIfNeeded(context, report, inspectionContext);
+  } on InvalidInspectionPhotoException catch (e) {
+    if (context.mounted) Navigator.pop(context);
+    if (!context.mounted) return;
+    final retry = await _showInvalidPhotoDialog(context, e.message);
+    if (context.mounted && retry == true) {
+      await _runGuidedFullCheck(context, inspectionContext);
+    }
+    return;
   } on AiException catch (e) {
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) _showErrorDialog(context, e.message);

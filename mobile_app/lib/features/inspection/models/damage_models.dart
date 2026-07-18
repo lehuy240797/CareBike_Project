@@ -13,6 +13,19 @@ class AiException implements Exception {
   String toString() => message;
 }
 
+class InvalidInspectionPhotoException extends AiException {
+  final String? reason;
+  final String? label;
+  final double? confidence;
+
+  const InvalidInspectionPhotoException(
+    super.message, {
+    this.reason,
+    this.label,
+    this.confidence,
+  });
+}
+
 /// How deeply the user chose to inspect the part.
 enum InspectionMode {
   quickScan,
